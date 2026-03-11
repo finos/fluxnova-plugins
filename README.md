@@ -1,23 +1,13 @@
-<img align="right" width="40%" src="https://www.finos.org/hubfs/FINOS/finos-logo/FINOS_Icon_Wordmark_Name_RGB_horizontal.png">
+[![FINOS - Incubating](https://cdn.jsdelivr.net/gh/finos/contrib-toolbox@master/images/badge-incubating.svg)](https://community.finos.org/docs/governance/Software-Projects/stages/incubating)
 
-# FINOS Software Project Blueprint
+# Fluxnova Plugins
 
-Project blueprint is a GitHub repository template for all [Fintech Open Source Foundation (FINOS)](https://www.finos.org/) hosted GitHub repositories, contributed and maintained by FINOS.
-
-## How to use this blueprint
-
-Please follow instructions on [community.finos.org/docs/collaboration-infrastructure#finos-project-blueprint](https://community.finos.org/docs/collaboration-infrastructure#finos-project-blueprint)
-
-## Blueprint preview
-
-A preview of the blueprint can be found on [project-blueprint.finos.org](https://project-blueprint.finos.org)
-
-## Governance
-This blueprint implements https://community.finos.org/docs/governance/#open-source-software-projects
+## Contributing
+Please see the Fluxnova [contribution guidelines](https://github.com/finos/fluxnova-bpm-platform/blob/main/CONTRIBUTING.md) for how to raise issues and how to contribute code.
 
 ## License
 
-Copyright 2019 Fintech Open Source Foundation
+Copyright 2026 FINOS
 
 Distributed under the [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0).
 
