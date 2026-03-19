@@ -4,7 +4,6 @@ import org.finos.fluxnova.ai.mcp.security.engine.EngineAuthenticationContextFilt
 import org.finos.fluxnova.ai.mcp.security.engine.EngineBasicAuthProvider;
 import org.finos.fluxnova.bpm.engine.ProcessEngine;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -18,7 +17,6 @@ import org.springframework.security.web.authentication.www.BasicAuthenticationFi
  * <p>HTTP Basic Auth via {@link EngineBasicAuthProvider} checks username/password
  * against the Fluxnova process engine identity service.
  */
-@Configuration
 public class SecurityConfig {
 
   private final EngineBasicAuthProvider authenticationProvider;
