@@ -4,6 +4,9 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.finos.fluxnova.ai.mcp.security.permissions.McpPermission;
+import org.finos.fluxnova.ai.mcp.security.permissions.McpResource;
+import org.finos.fluxnova.bpm.engine.AuthorizationService;
 import org.finos.fluxnova.bpm.engine.ProcessEngine;
 import org.finos.fluxnova.bpm.engine.identity.Group;
 import org.finos.fluxnova.bpm.engine.identity.Tenant;
@@ -54,6 +57,13 @@ public class EngineAuthenticationContextFilter extends OncePerRequestFilter {
                 List<String> groupIds = getGroupsOfUser(userId);
                 List<String> tenantIds = getTenantsOfUser(userId);
                 processEngine.getIdentityService().setAuthentication(userId, groupIds, tenantIds);
+
+                if (!isAuthorizedForMcp(userId, groupIds)) {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN,
+                            "User '" + userId + "' is not authorized to access MCP resources");
+                    return;
+                }
+
                 filterChain.doFilter(request, response);
             } finally {
                 processEngine.getIdentityService().clearAuthentication();
@@ -61,6 +71,12 @@ public class EngineAuthenticationContextFilter extends OncePerRequestFilter {
         } else {
             filterChain.doFilter(request, response);
         }
+    }
+
+    private boolean isAuthorizedForMcp(String userId, List<String> groupIds) {
+        AuthorizationService authorizationService = processEngine.getAuthorizationService();
+        return authorizationService.isUserAuthorized(userId, groupIds,
+                McpPermission.ACCESS, McpResource.MCP);
     }
 
     private List<String> getGroupsOfUser(String userId) {
