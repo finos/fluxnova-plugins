@@ -1,8 +1,10 @@
 package org.finos.fluxnova.ai.mcp.server.registry;
 
+import io.modelcontextprotocol.spec.McpSchema.JsonSchema;
 import org.finos.fluxnova.ai.mcp.server.model.ToolHandler;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -101,5 +103,54 @@ class ToolConfigTest {
     void shouldThrowExceptionForBlankParameterType() {
         assertThrows(IllegalArgumentException.class,
                 () -> new ToolConfig.ParameterSpec("", true));
+    }
+
+    // rawSchema tests
+
+    @Test
+    void shouldCreateConfigWithRawSchema() {
+        ToolHandler handler = args -> "result";
+        JsonSchema schema = new JsonSchema(
+                "object",
+                Map.of("field1", Map.of("type", "string")),
+                List.of("field1"),
+                null, null, null
+        );
+
+        ToolConfig config = new ToolConfig("SchemaTool", "Tool with schema", schema, handler);
+
+        assertEquals("SchemaTool", config.name());
+        assertNotNull(config.rawSchema());
+        assertEquals("object", config.rawSchema().type());
+        assertTrue(config.parameters().isEmpty());
+    }
+
+    @Test
+    void shouldCreateConfigWithParametersAndNullRawSchema() {
+        ToolHandler handler = args -> "result";
+        Map<String, ToolConfig.ParameterSpec> params = Map.of(
+                "param1", ToolConfig.ParameterSpec.required("string")
+        );
+
+        ToolConfig config = new ToolConfig("Tool", "Desc", params, handler);
+
+        assertNull(config.rawSchema());
+        assertEquals(1, config.parameters().size());
+    }
+
+    @Test
+    void shouldCreateConfigWithBothParametersAndRawSchema() {
+        ToolHandler handler = args -> "result";
+        Map<String, ToolConfig.ParameterSpec> params = Map.of(
+                "param1", ToolConfig.ParameterSpec.required("string")
+        );
+        JsonSchema schema = new JsonSchema(
+                "object", Map.of(), null, null, null, null
+        );
+
+        ToolConfig config = new ToolConfig("Tool", "Desc", params, schema, handler);
+
+        assertNotNull(config.rawSchema());
+        assertEquals(1, config.parameters().size());
     }
 }

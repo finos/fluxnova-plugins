@@ -3,6 +3,7 @@ package org.finos.fluxnova.ai.mcp.server.registry;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
 import io.modelcontextprotocol.server.McpSyncServer;
+import io.modelcontextprotocol.spec.McpSchema.JsonSchema;
 import org.finos.fluxnova.ai.mcp.server.model.ToolHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -10,6 +11,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -171,5 +173,57 @@ class ToolRegistryTest {
         boolean result = toolRegistry.register(config);
 
         assertFalse(result);
+    }
+
+    @Test
+    void shouldRegisterToolWithRawSchema() {
+        ToolHandler handler = args -> "result";
+        JsonSchema schema = new JsonSchema(
+                "object",
+                Map.of("field1", Map.of("type", "string", "description", "A field")),
+                List.of("field1"),
+                null, null, null
+        );
+        ToolConfig config = new ToolConfig("SchemaTool", "Tool with raw schema", schema, handler);
+
+        boolean result = toolRegistry.register(config);
+
+        assertTrue(result);
+        assertTrue(toolRegistry.isRegistered("SchemaTool"));
+
+        ArgumentCaptor<SyncToolSpecification> specCaptor =
+                ArgumentCaptor.forClass(SyncToolSpecification.class);
+        verify(mcpServer).addTool(specCaptor.capture());
+
+        var tool = specCaptor.getValue().tool();
+        assertNotNull(tool.inputSchema());
+        assertEquals("object", tool.inputSchema().type());
+        assertTrue(tool.inputSchema().properties().containsKey("field1"));
+        assertEquals(List.of("field1"), tool.inputSchema().required());
+    }
+
+    @Test
+    void shouldPreferRawSchemaOverParameters() {
+        ToolHandler handler = args -> "result";
+        Map<String, ToolConfig.ParameterSpec> params = Map.of(
+                "param1", ToolConfig.ParameterSpec.required("string")
+        );
+        JsonSchema schema = new JsonSchema(
+                "object",
+                Map.of("custom", Map.of("type", "number")),
+                null, null, null, null
+        );
+        ToolConfig config = new ToolConfig("Tool", "Desc", params, schema, handler);
+
+        toolRegistry.register(config);
+
+        ArgumentCaptor<SyncToolSpecification> specCaptor =
+                ArgumentCaptor.forClass(SyncToolSpecification.class);
+        verify(mcpServer).addTool(specCaptor.capture());
+
+        var tool = specCaptor.getValue().tool();
+        // Should use rawSchema, not parameters
+        assertTrue(tool.inputSchema().properties().containsKey("custom"));
+        assertFalse(tool.inputSchema().properties().containsKey("param1"));
     }
 }

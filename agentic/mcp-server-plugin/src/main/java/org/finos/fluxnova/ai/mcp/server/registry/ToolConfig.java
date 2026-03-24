@@ -1,5 +1,6 @@
 package org.finos.fluxnova.ai.mcp.server.registry;
 
+import io.modelcontextprotocol.spec.McpSchema.JsonSchema;
 import org.finos.fluxnova.ai.mcp.server.model.ToolHandler;
 
 import java.util.Map;
@@ -13,6 +14,7 @@ public record ToolConfig(
         String name,
         String description,
         Map<String, ParameterSpec> parameters,
+        JsonSchema rawSchema,
         ToolHandler handler
 ) {
     /**
@@ -60,9 +62,23 @@ public record ToolConfig(
     }
 
     /**
-     * Convenience constructor without parameters
+     * Convenience constructor without parameters (no schema)
      */
     public ToolConfig(String name, String description, ToolHandler handler) {
-        this(name, description, Map.of(), handler);
+        this(name, description, Map.of(), null, handler);
+    }
+
+    /**
+     * Convenience constructor with parameter specs (no raw schema)
+     */
+    public ToolConfig(String name, String description, Map<String, ParameterSpec> parameters, ToolHandler handler) {
+        this(name, description, parameters, null, handler);
+    }
+
+    /**
+     * Convenience constructor with raw JSON schema (no parameter specs)
+     */
+    public ToolConfig(String name, String description, JsonSchema rawSchema, ToolHandler handler) {
+        this(name, description, Map.of(), rawSchema, handler);
     }
 }
