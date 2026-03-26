@@ -82,7 +82,7 @@ public class McpStartupScanner {
             docFactory.setNamespaceAware(true);
             Document doc = docFactory.newDocumentBuilder().parse(bpmnStream);
 
-            NodeList startEvents = doc.getElementsByTagName("startEvent");
+            NodeList startEvents = doc.getElementsByTagName("bpmn:startEvent");
             int count = 0;
 
             for (int i = 0; i < startEvents.getLength(); i++) {
