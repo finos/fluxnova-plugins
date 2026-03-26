@@ -2,9 +2,9 @@
 
 Security extension for a Fluxnova MCP server.
 
-This module secures MCP endpoints with Spring Security and currently supports only Basic Authentication runtime modes
+This module secures MCP endpoints with Spring Security and currently supports only Basic Authentication runtime modes.
 
-The authenticated user is propagated into the Fluxnova process engine identity context so engine-level authorization checks continue to work.
+The authenticated user is propagated into the Fluxnova process engine identity context. Authorization is enforced via a custom MCP resource type, requiring users to hold the `ACCESS` permission on the `MCP` resource.
 
 ## Requirements
 
@@ -50,11 +50,18 @@ Main behavior:
 - Requires HTTP Basic Auth on `/mcp/**` and `/sse/**`.
 - Validates credentials using Fluxnova engine `IdentityService.checkPassword(...)`.
 - Runs stateless (no HTTP session).
+- Enforces `McpPermission.ACCESS` on `McpResource.MCP` (resource type 22) for every request.
+- On first startup, grants `CAMUNDA_ADMIN` group `ACCESS` permission by default.
 
 No additional module-specific properties are required.
 
 ## Key Components
 
-- `SecurityConfig`: HTTP Basic fallback chain for `/mcp/**` and `/sse/**`.
-- `EngineBasicAuthProvider`: Validates Basic Auth credentials against the engine identity service.
-- `EngineAuthenticationContextFilter`: Propagates Spring Security identity into engine auth context per request.
+- `SecurityMcpAutoConfiguration`: Auto-configuration that wires all beans and imports `SecurityConfig`.
+- `SecurityConfig`: HTTP Basic filter chain for `/mcp/**` and `/sse/**`.
+- `EngineBasicAuthProvider`: Validates Basic Auth credentials against the engine identity service; grants `ROLE_MCP_USER`.
+- `EngineAuthenticationContextFilter`: Propagates Spring Security identity into engine auth context and enforces MCP authorization per request.
+- `McpSecurityEnginePlugin`: Process engine plugin that registers the MCP permission provider and seeds default admin authorization.
+- `McpPermissionProvider`: Resolves `McpPermission` values by name and resource type for the engine authorization framework.
+- `McpResource`: Enum declaring the `MCP` resource (type 22).
+- `McpPermission`: Enum declaring `NONE` and `ACCESS` permission levels for the MCP resource.
