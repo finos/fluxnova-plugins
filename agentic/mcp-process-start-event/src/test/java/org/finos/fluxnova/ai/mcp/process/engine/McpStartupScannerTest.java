@@ -7,11 +7,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
-import java.io.InputStream;
 import java.util.Collections;
 import java.util.List;
 
 import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 
 class McpStartupScannerTest {
 
@@ -55,19 +56,21 @@ class McpStartupScannerTest {
 
         String bpmnXml = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
-              <process id="testProcess">
-                <startEvent id="start"/>
-              </process>
-            </definitions>
+            <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                              xmlns:mcp="http://fluxnova.finos.org/schema/1.0/ai/mcp">
+              <bpmn:process id="testProcess">
+                <bpmn:startEvent id="start" mcp:toolName="myTool" mcp:description="A test tool"/>
+              </bpmn:process>
+            </bpmn:definitions>
             """;
 
-        InputStream bpmnStream = new ByteArrayInputStream(bpmnXml.getBytes());
-        when(repositoryService.getProcessModel("process-def-1")).thenReturn(bpmnStream);
+        when(repositoryService.getProcessModel("process-def-1"))
+                .thenReturn(new ByteArrayInputStream(bpmnXml.getBytes()));
 
         scanner.scanAndRegisterExistingProcesses();
 
         verify(repositoryService).getProcessModel("process-def-1");
+        verify(extractor, times(1)).extract(any(), eq("testProcess"));
     }
 
     @Test
@@ -120,9 +123,9 @@ class McpStartupScannerTest {
 
         String bpmnXml = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
-              <process id="test"><startEvent id="start"/></process>
-            </definitions>
+            <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL">
+              <bpmn:process id="test"><bpmn:startEvent id="start"/></bpmn:process>
+            </bpmn:definitions>
             """;
 
         when(repositoryService.getProcessModel("process-1"))
