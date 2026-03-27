@@ -146,9 +146,12 @@ public class ToolRegistry {
 
     /**
      * Builds an MCP Tool from a ToolConfig.
+     * Uses the raw JSON schema if provided, otherwise builds one from parameter specs.
      */
     private Tool buildTool(ToolConfig config) {
-        JsonSchema schema = buildJsonSchema(config.parameters());
+        JsonSchema schema = config.rawSchema() != null
+                ? config.rawSchema()
+                : buildJsonSchema(config.parameters());
 
         return new Tool(
                 config.name(),
