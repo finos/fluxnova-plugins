@@ -5,44 +5,25 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd"
 >
   <modelVersion>4.0.0</modelVersion>
-  <groupId>org.finos.fluxnova.ai.mcp</groupId>
-  <artifactId>engine-mcp-security</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
-  <name>engine-mcp-security</name>
-  <description>MCP security extension for the Fluxnova process engine</description>
-  <properties>
-    <maven.compiler.source>21</maven.compiler.source>
-    <maven.compiler.target>21</maven.compiler.target>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <fluxnova.version>1.0.0</fluxnova.version>
-    <spring-boot.version>3.5.8</spring-boot.version>
-    <spring-ai.version>1.1.2</spring-ai.version>
-    <swagger.version>2.2.38</swagger.version>
-    <junit.version>5.10.1</junit.version>
-    <mockito.version>5.8.0</mockito.version>
-  </properties>
-  <dependencyManagement>
-    <dependencies>
-      <dependency>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-dependencies</artifactId>
-        <version>${spring-boot.version}</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-      <dependency>
-        <groupId>io.swagger.core.v3</groupId>
-        <artifactId>swagger-annotations-jakarta</artifactId>
-        <version>${swagger.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.nimbusds</groupId>
-        <artifactId>nimbus-jose-jwt</artifactId>
-        <version>9.37.4</version>
-      </dependency>
-    </dependencies>
-  </dependencyManagement>
+  <parent>
+    <artifactId>fluxnova-engine-plugins-ai</artifactId>
+    <groupId>org.finos.fluxnova.bpm</groupId>
+    <version>0.0.1-SNAPSHOT</version>
+  </parent>
+  <artifactId>fluxnova-engine-plugins-ai-mcp-security</artifactId>
+  <packaging>jar</packaging>
+  <name>Fluxnova Platform - Engine Plugins - AI - MCP Security</name>
+  <description>MCP Security Extension for Fluxnova MCP Usage</description>
   <dependencies>
+    <dependency>
+      <groupId>io.swagger.core.v3</groupId>
+      <artifactId>swagger-annotations-jakarta</artifactId>
+      <version>${swagger.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.nimbusds</groupId>
+      <artifactId>nimbus-jose-jwt</artifactId>
+    </dependency>
     <dependency>
       <groupId>org.finos.fluxnova.bpm</groupId>
       <artifactId>fluxnova-engine</artifactId>
@@ -50,18 +31,14 @@
       <scope>provided</scope>
     </dependency>
     <dependency>
-      <groupId>org.springframework.ai</groupId>
-      <artifactId>spring-ai-starter-mcp-server-webmvc</artifactId>
-      <version>${spring-ai.version}</version>
+      <groupId>jakarta.servlet</groupId>
+      <artifactId>jakarta.servlet-api</artifactId>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
       <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>io.swagger.core.v3</groupId>
-      <artifactId>swagger-annotations-jakarta</artifactId>
     </dependency>
     <dependency>
       <groupId>org.finos.fluxnova.bpm.springboot</groupId>
@@ -71,26 +48,23 @@
 
     <!-- Test dependencies -->
     <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter</artifactId>
-      <version>${junit.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
-      <version>${mockito.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-junit-jupiter</artifactId>
-      <version>${mockito.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -104,21 +78,14 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.11.0</version>
-        <configuration>
-          <source>${maven.compiler.source}</source>
-          <target>${maven.compiler.target}</target>
-        </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
-        <version>3.3.0</version>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>3.2.3</version>
         <configuration>
           <excludes>
             <exclude>**/*IT.java</exclude>
@@ -128,7 +95,6 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
-        <version>3.4.0</version>
         <executions>
           <execution>
             <id>add-integration-test-sources</id>
@@ -147,7 +113,6 @@
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
-        <version>0.8.14</version>
         <executions>
           <execution>
             <goals>
@@ -181,7 +146,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
-        <version>3.2.3</version>
         <configuration>
           <argLine>@{argLine}</argLine>
           <includes>
@@ -200,7 +164,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.6.2</version>
         <executions>
           <execution>
             <id>enforce</id>
