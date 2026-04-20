@@ -22,6 +22,7 @@
 
     <properties>
         <fluxnova.version>2.0.0-SNAPSHOT</fluxnova.version>
+        <maven.compiler.release>21</maven.compiler.release>
     </properties>
 
     <dependencyManagement>
