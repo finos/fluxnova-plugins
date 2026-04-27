@@ -1,0 +1,162 @@
+package org.finos.fluxnova.bpm.engine.ai.agent.discovery.runtime;
+
+import org.finos.fluxnova.bpm.engine.RuntimeService;
+import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentContextSpec;
+import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.ContextVariableDeclaration;
+import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.ResolvedContext;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class ContextResolverTest {
+
+    private static final String EXECUTION_ID = "exec-123";
+    private static final String PROC_DEF_ID = "proc:1";
+
+    @Mock
+    private RuntimeService runtimeService;
+
+    private ContextResolver resolver;
+
+    @BeforeEach
+    void setUp() {
+        resolver = new ContextResolver(runtimeService);
+    }
+
+    private Map<String, Object> allVariables() {
+        Map<String, Object> vars = new LinkedHashMap<>();
+        vars.put("customerId", "C-001");
+        vars.put("applicationAmount", 50000);
+        vars.put("creditScore", 720);
+        vars.put("_agentState", "RUNNING");
+        vars.put("_agentConversation", List.of("msg1"));
+        vars.put("_agentToolCallId", "tc-1");
+        return vars;
+    }
+
+    @Test
+    void resolve_whenNoDeclaredVariables_exposesAllExceptAgentVars() {
+        when(runtimeService.getVariables(EXECUTION_ID)).thenReturn(allVariables());
+        AgentContextSpec spec = new AgentContextSpec(PROC_DEF_ID, "agent1", List.of());
+
+        ResolvedContext result = resolver.resolve(EXECUTION_ID, spec);
+
+        assertEquals(3, result.variables().size());
+        assertEquals("C-001", result.variables().get("customerId"));
+        assertEquals(50000, result.variables().get("applicationAmount"));
+        assertEquals(720, result.variables().get("creditScore"));
+        assertFalse(result.variables().containsKey("_agentState"));
+        assertFalse(result.variables().containsKey("_agentConversation"));
+        assertFalse(result.variables().containsKey("_agentToolCallId"));
+    }
+
+    @Test
+    void resolve_whenDeclaredVariablesSpecified_filtersToOnlyDeclared() {
+        when(runtimeService.getVariables(EXECUTION_ID)).thenReturn(allVariables());
+        AgentContextSpec spec = new AgentContextSpec(PROC_DEF_ID, "agent1", List.of(
+                new ContextVariableDeclaration("customerId"),
+                new ContextVariableDeclaration("applicationAmount")
+        ));
+
+        ResolvedContext result = resolver.resolve(EXECUTION_ID, spec);
+
+        assertEquals(2, result.variables().size());
+        assertEquals("C-001", result.variables().get("customerId"));
+        assertEquals(50000, result.variables().get("applicationAmount"));
+    }
+
+    @Test
+    void resolve_declaredVariableNotInScope_notIncluded() {
+        when(runtimeService.getVariables(EXECUTION_ID)).thenReturn(allVariables());
+        AgentContextSpec spec = new AgentContextSpec(PROC_DEF_ID, "agent1", List.of(
+                new ContextVariableDeclaration("customerId"),
+                new ContextVariableDeclaration("nonExistentVar")
+        ));
+
+        ResolvedContext result = resolver.resolve(EXECUTION_ID, spec);
+
+        assertEquals(1, result.variables().size());
+        assertTrue(result.variables().containsKey("customerId"));
+        assertFalse(result.variables().containsKey("nonExistentVar"));
+    }
+
+    @Test
+    void resolve_declaredAgentPrefixedVar_stillExcluded() {
+        when(runtimeService.getVariables(EXECUTION_ID)).thenReturn(allVariables());
+        AgentContextSpec spec = new AgentContextSpec(PROC_DEF_ID, "agent1", List.of(
+                new ContextVariableDeclaration("_agentState")
+        ));
+
+        ResolvedContext result = resolver.resolve(EXECUTION_ID, spec);
+
+        assertTrue(result.variables().isEmpty());
+    }
+
+    @Test
+    void resolve_emptyVariableScope_returnsEmptyContext() {
+        when(runtimeService.getVariables(EXECUTION_ID)).thenReturn(Map.of());
+        AgentContextSpec spec = new AgentContextSpec(PROC_DEF_ID, "agent1", List.of());
+
+        ResolvedContext result = resolver.resolve(EXECUTION_ID, spec);
+
+        assertTrue(result.variables().isEmpty());
+    }
+
+    @Test
+    void resolve_allVariablesAreAgentPrefixed_returnsEmpty() {
+        Map<String, Object> vars = Map.of(
+                "_agentState", "RUNNING",
+                "_agentToolCallId", "tc-1"
+        );
+        when(runtimeService.getVariables(EXECUTION_ID)).thenReturn(vars);
+        AgentContextSpec spec = new AgentContextSpec(PROC_DEF_ID, "agent1", List.of());
+
+        ResolvedContext result = resolver.resolve(EXECUTION_ID, spec);
+
+        assertTrue(result.variables().isEmpty());
+    }
+
+    @Test
+    void resolve_variableStartingWithAgentButNotPrefixed_isIncluded() {
+        Map<String, Object> vars = new LinkedHashMap<>();
+        vars.put("agentName", "Credit Agent");
+        vars.put("_agentState", "RUNNING");
+        when(runtimeService.getVariables(EXECUTION_ID)).thenReturn(vars);
+        AgentContextSpec spec = new AgentContextSpec(PROC_DEF_ID, "agent1", List.of());
+
+        ResolvedContext result = resolver.resolve(EXECUTION_ID, spec);
+
+        assertEquals(1, result.variables().size());
+        assertEquals("Credit Agent", result.variables().get("agentName"));
+    }
+
+    @Test
+    void resolve_preservesVariableValueTypes() {
+        Map<String, Object> vars = new LinkedHashMap<>();
+        vars.put("count", 42);
+        vars.put("active", true);
+        vars.put("name", "test");
+        vars.put("items", List.of("a", "b"));
+        vars.put("data", Map.of("k", "v"));
+        when(runtimeService.getVariables(EXECUTION_ID)).thenReturn(vars);
+        AgentContextSpec spec = new AgentContextSpec(PROC_DEF_ID, "agent1", List.of());
+
+        ResolvedContext result = resolver.resolve(EXECUTION_ID, spec);
+
+        assertEquals(42, result.variables().get("count"));
+        assertEquals(true, result.variables().get("active"));
+        assertEquals("test", result.variables().get("name"));
+        assertEquals(List.of("a", "b"), result.variables().get("items"));
+        assertEquals(Map.of("k", "v"), result.variables().get("data"));
+    }
+}
