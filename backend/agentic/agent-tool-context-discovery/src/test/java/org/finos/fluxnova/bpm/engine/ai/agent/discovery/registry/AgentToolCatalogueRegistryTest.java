@@ -1,5 +1,6 @@
 package org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry;
 
+import org.finos.fluxnova.bpm.engine.ProcessEngineException;
 import org.finos.fluxnova.bpm.engine.RepositoryService;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AgentToolCatalogueBuilder;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolCatalogue;
@@ -14,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
@@ -149,6 +151,60 @@ class AgentToolCatalogueRegistryTest {
         when(agentConfigRegistry.resolve(PROC_DEF_ID, ELEMENT_ID)).thenReturn(Optional.of(configWithDifferentScope));
         when(repositoryService.getProcessModel(PROC_DEF_ID))
                 .thenReturn(new ByteArrayInputStream(BPMN_WITH_TOOL.getBytes(StandardCharsets.UTF_8)));
+
+        Optional<AgentToolCatalogue> result = registry.resolve(PROC_DEF_ID, ELEMENT_ID);
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void resolve_whenBuilderThrowsProcessEngineException_returnsEmpty() {
+        when(agentConfigRegistry.resolve(PROC_DEF_ID, ELEMENT_ID)).thenReturn(Optional.of(config()));
+        when(repositoryService.getProcessModel(PROC_DEF_ID))
+                .thenReturn(new ByteArrayInputStream(BPMN_WITH_TOOL.getBytes(StandardCharsets.UTF_8)));
+        when(catalogueBuilder.build(any(Element.class), eq(PROC_DEF_ID)))
+                .thenThrow(new ProcessEngineException("invalid config"));
+
+        Optional<AgentToolCatalogue> result = registry.resolve(PROC_DEF_ID, ELEMENT_ID);
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void resolve_whenIOExceptionOnStreamClose_retriesOnNextCall() {
+        when(agentConfigRegistry.resolve(PROC_DEF_ID, ELEMENT_ID)).thenReturn(Optional.of(config()));
+        ByteArrayInputStream stream = new ByteArrayInputStream(
+                BPMN_WITH_TOOL.getBytes(StandardCharsets.UTF_8)) {
+            private boolean firstCloseDone = false;
+            @Override
+            public void close() throws IOException {
+                if (firstCloseDone) {
+                    throw new IOException("close failed");
+                }
+                firstCloseDone = true;
+            }
+        };
+        when(repositoryService.getProcessModel(PROC_DEF_ID)).thenReturn(stream);
+        when(catalogueBuilder.build(any(Element.class), eq(PROC_DEF_ID)))
+                .thenReturn(new AgentToolCatalogue(PROC_DEF_ID, ELEMENT_ID, List.of()));
+
+        // First call - IOException on try-with-resources close after parsing succeeds
+        Optional<AgentToolCatalogue> result = registry.resolve(PROC_DEF_ID, ELEMENT_ID);
+        // Catalogue was stored before close, so result is present
+        assertTrue(result.isPresent());
+
+        // Second call triggers re-scan because doScan returned null
+        when(repositoryService.getProcessModel(PROC_DEF_ID))
+                .thenReturn(new ByteArrayInputStream(BPMN_WITH_TOOL.getBytes(StandardCharsets.UTF_8)));
+        registry.resolve(PROC_DEF_ID, ELEMENT_ID);
+
+        verify(repositoryService, times(2)).getProcessModel(PROC_DEF_ID);
+    }
+
+    @Test
+    void resolve_whenGetProcessModelReturnsNull_returnsEmpty() {
+        when(agentConfigRegistry.resolve(PROC_DEF_ID, ELEMENT_ID)).thenReturn(Optional.of(config()));
+        when(repositoryService.getProcessModel(PROC_DEF_ID)).thenReturn(null);
 
         Optional<AgentToolCatalogue> result = registry.resolve(PROC_DEF_ID, ELEMENT_ID);
 

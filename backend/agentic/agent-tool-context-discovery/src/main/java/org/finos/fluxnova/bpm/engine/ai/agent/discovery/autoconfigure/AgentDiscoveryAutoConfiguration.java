@@ -6,6 +6,7 @@ import org.finos.fluxnova.bpm.engine.ai.agent.autoconfigure.AgentConfigAutoConfi
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AdHocSubProcessCatalogueBuilder;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AgentContextSpecExtractor;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AgentToolCatalogueBuilder;
+import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.BpmnExtensionContextSpecExtractor;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.lifecycle.AgentDiscoveryUndeployListener;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry.AgentContextSpecRegistry;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry.AgentToolCatalogueRegistry;
@@ -29,7 +30,7 @@ public class AgentDiscoveryAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public AgentContextSpecExtractor agentContextSpecExtractor() {
-        return new AgentContextSpecExtractor();
+        return new BpmnExtensionContextSpecExtractor();
     }
 
     @Bean

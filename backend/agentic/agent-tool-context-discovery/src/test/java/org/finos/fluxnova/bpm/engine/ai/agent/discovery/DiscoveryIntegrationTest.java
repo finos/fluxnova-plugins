@@ -3,7 +3,7 @@ package org.finos.fluxnova.bpm.engine.ai.agent.discovery;
 import org.finos.fluxnova.bpm.engine.RepositoryService;
 import org.finos.fluxnova.bpm.engine.RuntimeService;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AdHocSubProcessCatalogueBuilder;
-import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AgentContextSpecExtractor;
+import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.BpmnExtensionContextSpecExtractor;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.*;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry.AgentContextSpecRegistry;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry.AgentToolCatalogueRegistry;
@@ -132,7 +132,7 @@ class DiscoveryIntegrationTest {
         catalogueRegistry = new AgentToolCatalogueRegistry(
                 repositoryService, agentConfigRegistry, new AdHocSubProcessCatalogueBuilder());
         contextSpecRegistry = new AgentContextSpecRegistry(
-                repositoryService, agentConfigRegistry, new AgentContextSpecExtractor());
+                repositoryService, agentConfigRegistry, new BpmnExtensionContextSpecExtractor());
         contextResolver = new ContextResolver(runtimeService);
     }
 

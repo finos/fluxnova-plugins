@@ -172,6 +172,26 @@ class AdHocSubProcessCatalogueBuilderTest {
             assertEquals(1, catalogue.tools().size());
             assertEquals("taskA", catalogue.tools().get(0).elementId());
         }
+
+        @Test
+        void build_sequenceFlowWithMissingTargetRef_doesNotExclude() {
+            String bpmn = """
+                    <?xml version="1.0" encoding="UTF-8"?>
+                    <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
+                      <process id="p">
+                        <adHocSubProcess id="agent1">
+                          <serviceTask id="taskA" name="A"/>
+                          <serviceTask id="taskB" name="B"/>
+                          <sequenceFlow id="f1" sourceRef="taskA"/>
+                        </adHocSubProcess>
+                      </process>
+                    </definitions>
+                    """;
+
+            AgentToolCatalogue catalogue = builder.build(parseAdHocSubProcess(bpmn), PROC_DEF_ID);
+
+            assertEquals(2, catalogue.tools().size());
+        }
     }
 
     // ---------- Tool metadata ----------
@@ -660,6 +680,40 @@ class AdHocSubProcessCatalogueBuilderTest {
 
             assertEquals(Set.of("customerId", "applicationId"), catalogue.tools().get(0).reads());
         }
+
+        @Test
+        void build_nonCamundaCompositeChildren_fallsThroughToText() {
+            String bpmn = """
+                    <?xml version="1.0" encoding="UTF-8"?>
+                    <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                                 xmlns:camunda="http://camunda.org/schema/1.0/bpmn">
+                      <process id="p">
+                        <adHocSubProcess id="agent1">
+                          <serviceTask id="taskA" name="Task A">
+                            <extensionElements>
+                              <camunda:inputOutput>
+                                <camunda:inputParameter name="p1">
+                                  <script>not-camunda-ns</script>
+                                </camunda:inputParameter>
+                                <camunda:inputParameter name="p2">
+                                  <list>not-camunda-ns</list>
+                                </camunda:inputParameter>
+                                <camunda:inputParameter name="p3">
+                                  <map>not-camunda-ns</map>
+                                </camunda:inputParameter>
+                              </camunda:inputOutput>
+                            </extensionElements>
+                          </serviceTask>
+                        </adHocSubProcess>
+                      </process>
+                    </definitions>
+                    """;
+
+            AgentToolCatalogue catalogue = builder.build(parseAdHocSubProcess(bpmn), PROC_DEF_ID);
+
+            // Non-camunda children fall through to text extraction; none are EL expressions
+            assertTrue(catalogue.tools().get(0).reads().isEmpty());
+        }
     }
 
     // ---------- Writes (outputParameter) ----------
@@ -734,6 +788,32 @@ class AdHocSubProcessCatalogueBuilderTest {
             AgentToolCatalogue catalogue = builder.build(parseAdHocSubProcess(bpmn), PROC_DEF_ID);
 
             assertTrue(catalogue.tools().get(0).writes().isEmpty());
+        }
+
+        @Test
+        void build_outputParameterWithoutName_isNotAddedToWrites() {
+            String bpmn = """
+                    <?xml version="1.0" encoding="UTF-8"?>
+                    <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                                 xmlns:camunda="http://camunda.org/schema/1.0/bpmn">
+                      <process id="p">
+                        <adHocSubProcess id="agent1">
+                          <serviceTask id="taskA" name="Task A">
+                            <extensionElements>
+                              <camunda:inputOutput>
+                                <camunda:outputParameter>${someValue}</camunda:outputParameter>
+                                <camunda:outputParameter name="valid">${other}</camunda:outputParameter>
+                              </camunda:inputOutput>
+                            </extensionElements>
+                          </serviceTask>
+                        </adHocSubProcess>
+                      </process>
+                    </definitions>
+                    """;
+
+            AgentToolCatalogue catalogue = builder.build(parseAdHocSubProcess(bpmn), PROC_DEF_ID);
+
+            assertEquals(Set.of("valid"), catalogue.tools().get(0).writes());
         }
     }
 
@@ -853,6 +933,26 @@ class AdHocSubProcessCatalogueBuilderTest {
                       <process id="p">
                         <adHocSubProcess id="agent1">
                           <serviceTask name="Misconfigured Task"/>
+                          <serviceTask id="validTask" name="Valid Task"/>
+                        </adHocSubProcess>
+                      </process>
+                    </definitions>
+                    """;
+
+            Element scope = parseAdHocSubProcess(bpmn);
+            ProcessEngineException ex = assertThrows(ProcessEngineException.class,
+                    () -> builder.build(scope, PROC_DEF_ID));
+            assertTrue(ex.getMessage().contains("missing id"));
+        }
+
+        @Test
+        void build_activityWithBlankId_throwsProcessEngineException() {
+            String bpmn = """
+                    <?xml version="1.0" encoding="UTF-8"?>
+                    <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
+                      <process id="p">
+                        <adHocSubProcess id="agent1">
+                          <serviceTask id="" name="Blank ID Task"/>
                           <serviceTask id="validTask" name="Valid Task"/>
                         </adHocSubProcess>
                       </process>

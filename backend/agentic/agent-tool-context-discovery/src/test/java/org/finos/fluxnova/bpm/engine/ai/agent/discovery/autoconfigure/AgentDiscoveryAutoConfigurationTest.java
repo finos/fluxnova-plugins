@@ -5,6 +5,7 @@ import org.finos.fluxnova.bpm.engine.RuntimeService;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AdHocSubProcessCatalogueBuilder;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AgentContextSpecExtractor;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AgentToolCatalogueBuilder;
+import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.BpmnExtensionContextSpecExtractor;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.lifecycle.AgentDiscoveryUndeployListener;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry.AgentContextSpecRegistry;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry.AgentToolCatalogueRegistry;
@@ -57,6 +58,14 @@ class AgentDiscoveryAutoConfigurationTest {
 
         AgentToolCatalogueBuilder builder = context.getBean(AgentToolCatalogueBuilder.class);
         assertInstanceOf(AdHocSubProcessCatalogueBuilder.class, builder);
+    }
+
+    @Test
+    void defaultContextSpecExtractor_isBpmnExtensionImpl() {
+        context = new AnnotationConfigApplicationContext(MockInfrastructure.class, AgentDiscoveryAutoConfiguration.class);
+
+        AgentContextSpecExtractor extractor = context.getBean(AgentContextSpecExtractor.class);
+        assertInstanceOf(BpmnExtensionContextSpecExtractor.class, extractor);
     }
 
     @Configuration

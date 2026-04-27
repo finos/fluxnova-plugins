@@ -22,7 +22,7 @@ class AgentContextSpecExtractorTest {
 
     @BeforeEach
     void setUp() {
-        extractor = new AgentContextSpecExtractor();
+        extractor = new BpmnExtensionContextSpecExtractor();
     }
 
     private Element parseAdHocSubProcess(String bpmn) {
