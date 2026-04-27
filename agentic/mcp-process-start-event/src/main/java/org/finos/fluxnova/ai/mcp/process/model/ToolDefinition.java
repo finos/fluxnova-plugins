@@ -9,7 +9,7 @@ import java.util.Objects;
  * an MCP tool that can start a Fluxnova process.
  */
 public record ToolDefinition(
-        String processId,
+        String processKey,
         String toolName,
         String description,
         List<ToolParameter> parameters,
@@ -19,7 +19,7 @@ public record ToolDefinition(
      * Compact constructor with validation
      */
     public ToolDefinition {
-        Objects.requireNonNull(processId, "processId cannot be null");
+        Objects.requireNonNull(processKey, "processKey cannot be null");
         Objects.requireNonNull(toolName, "toolName cannot be null");
         Objects.requireNonNull(description, "description cannot be null");
         parameters = parameters != null ? List.copyOf(parameters) : List.of();

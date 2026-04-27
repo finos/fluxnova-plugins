@@ -21,19 +21,19 @@ import org.springframework.context.annotation.Bean;
 @ConditionalOnClass({McpSyncServer.class})
 public class McpServerSpringAutoConfiguration {
 
-    private static final Logger log = LoggerFactory.getLogger(McpServerSpringAutoConfiguration.class);
+    private static final Logger LOG = LoggerFactory.getLogger(McpServerSpringAutoConfiguration.class);
 
     @Bean
     @ConditionalOnMissingBean
     public ToolRegistry toolRegistry(McpSyncServer mcpServer, ObjectMapper objectMapper) {
-        log.info("MCP - Server - Auto-configuring ToolRegistry bean");
+        LOG.debug("MCP - Server - Auto-configuring ToolRegistry bean");
         return new ToolRegistry(mcpServer, objectMapper);
     }
 
     @Bean
     @ConditionalOnMissingBean
     public McpServerFluxnovaPlugin fluxnovaMcpServerPlugin(ToolRegistry toolRegistry) {
-        log.info("MCP - Server - Auto-configuring FluxnovaMcpServerPlugin bean");
+        LOG.debug("MCP - Server - Auto-configuring FluxnovaMcpServerPlugin bean");
         return new McpServerFluxnovaPlugin(toolRegistry);
     }
 }

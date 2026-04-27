@@ -1,8 +1,10 @@
 package org.finos.fluxnova.ai.mcp.process.autoconfigure;
 
-import org.finos.fluxnova.ai.mcp.process.engine.*;
+import org.finos.fluxnova.ai.mcp.process.engine.McpParseListener;
+import org.finos.fluxnova.ai.mcp.process.engine.McpStartupScanner;
+import org.finos.fluxnova.ai.mcp.process.engine.ProcessStarter;
+import org.finos.fluxnova.ai.mcp.process.engine.ToolFactory;
 import org.finos.fluxnova.ai.mcp.process.plugin.McpProcessStartEventPlugin;
-
 import org.finos.fluxnova.ai.mcp.server.autoconfigure.McpServerSpringAutoConfiguration;
 import org.finos.fluxnova.ai.mcp.server.registry.ToolRegistry;
 import org.finos.fluxnova.bpm.engine.RepositoryService;
@@ -29,13 +31,7 @@ import org.springframework.context.annotation.Lazy;
 @ConditionalOnBean(ToolRegistry.class)
 public class McpProcessStartEventAutoConfiguration {
 
-    private static final Logger log = LoggerFactory.getLogger(McpProcessStartEventAutoConfiguration.class);
-
-    @Bean
-    @ConditionalOnMissingBean
-    public BpmnStartEventToolExtractor bpmnToolExtractor() {
-        return new BpmnStartEventToolExtractor();
-    }
+    private static final Logger LOG = LoggerFactory.getLogger(McpProcessStartEventAutoConfiguration.class);
 
     @Bean
     @ConditionalOnMissingBean
@@ -51,14 +47,14 @@ public class McpProcessStartEventAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public McpParseListener mcpParseListener(BpmnStartEventToolExtractor extractor, ToolFactory factory) {
-        return new McpParseListener(extractor, factory);
+    public McpParseListener mcpParseListener(ToolFactory factory) {
+        return new McpParseListener(factory);
     }
 
     @Bean
     @ConditionalOnMissingBean
     public McpProcessStartEventPlugin fluxnovaMcpProcessStartEventPlugin(McpParseListener parseListener) {
-        log.info("MCP - Process Start Event - Auto-configuring FluxnovaMcpProcessStartEventPlugin bean");
+        LOG.debug("MCP - Process Start Event - Auto-configuring FluxnovaMcpProcessStartEventPlugin bean");
         return new McpProcessStartEventPlugin(parseListener);
     }
 
@@ -66,15 +62,15 @@ public class McpProcessStartEventAutoConfiguration {
     @ConditionalOnMissingBean
     public McpStartupScanner mcpStartupScanner(
             RepositoryService repositoryService,
-            BpmnStartEventToolExtractor extractor,
-            ToolFactory factory) {
-        return new McpStartupScanner(repositoryService, extractor, factory);
+            ToolFactory factory
+    ) {
+        return new McpStartupScanner(repositoryService, factory);
     }
 
     @Bean
     public ApplicationRunner mcpToolRegistrationRunner(McpStartupScanner scanner) {
         return args -> {
-            log.info("MCP - Process Start Event - Starting tool registration from existing processes");
+            LOG.info("MCP - Process Start Event - Starting tool registration from existing processes");
             scanner.scanAndRegisterExistingProcesses();
         };
     }

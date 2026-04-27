@@ -1,4 +1,4 @@
-package org.finos.fluxnova.ai.mcp.process.engine;
+package org.finos.fluxnova.ai.mcp.process.engine.extractor;
 
 import org.finos.fluxnova.ai.mcp.process.model.ToolDefinition;
 import org.finos.fluxnova.bpm.engine.impl.util.xml.Element;
@@ -13,11 +13,12 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
-class BpmnStartEventToolExtractorTest {
+class ElementToolExtractorTest {
 
-    private BpmnStartEventToolExtractor extractor;
+    private ElementToolExtractor extractor;
 
     @Mock
     private Element startEventElement;
@@ -31,12 +32,10 @@ class BpmnStartEventToolExtractorTest {
     @Mock
     private Element parameterElement;
 
-    private static final Namespace MCP_NAMESPACE = new Namespace("`http://fluxnova.finos.org/schema/1.0/ai/mcp`", "mcp");
-
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        extractor = new BpmnStartEventToolExtractor();
+        extractor = new ElementToolExtractor();
     }
 
     @Test
@@ -55,7 +54,7 @@ class BpmnStartEventToolExtractorTest {
         ToolDefinition result = extractor.extract(startEventElement, "weather-process");
 
         assertNotNull(result);
-        assertEquals("weather-process", result.processId());
+        assertEquals("weather-process", result.processKey());
         assertEquals("GetWeather", result.toolName());
         assertEquals("Fetches weather data", result.description());
         assertEquals(2, result.parameters().size()); // location + businessKey

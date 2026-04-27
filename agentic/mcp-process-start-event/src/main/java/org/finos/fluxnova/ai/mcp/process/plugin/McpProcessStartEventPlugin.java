@@ -2,10 +2,14 @@ package org.finos.fluxnova.ai.mcp.process.plugin;
 
 import org.finos.fluxnova.ai.mcp.process.engine.McpParseListener;
 import org.finos.fluxnova.bpm.engine.ProcessEngine;
+import org.finos.fluxnova.bpm.engine.impl.bpmn.parser.BpmnParseListener;
 import org.finos.fluxnova.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.finos.fluxnova.bpm.engine.impl.cfg.ProcessEnginePlugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Fluxnova ProcessEnginePlugin that scans BPMN processes for MCP-annotated start events
@@ -36,22 +40,25 @@ public class McpProcessStartEventPlugin implements ProcessEnginePlugin {
 
     private static final Logger LOG = LoggerFactory.getLogger(McpProcessStartEventPlugin.class);
 
-    private final McpParseListener parseListener;
+    private final McpParseListener mcpParseListener;
+//    private final McpStartupScanner mcpStartupScanner;
 
-    public McpProcessStartEventPlugin(McpParseListener parseListener) {
-        this.parseListener = parseListener;
+    public McpProcessStartEventPlugin(McpParseListener mcpParseListener
+//            , McpStartupScanner mcpStartupScanner
+    ) {
+        this.mcpParseListener = mcpParseListener;
+//        this.mcpStartupScanner = mcpStartupScanner;
     }
 
     @Override
     public void preInit(ProcessEngineConfigurationImpl processEngineConfiguration) {
-        LOG.info("MCP - Process Start Event Plugin - Registering BPMN parse listener");
-
-        LOG.debug("MCP - Parse listeners BEFORE adding: {}",
-                processEngineConfiguration.getCustomPostBPMNParseListeners().size());
-        processEngineConfiguration.getCustomPostBPMNParseListeners().add(parseListener);
-        LOG.debug("MCP - Parse listeners AFTER adding: {}",
-                processEngineConfiguration.getCustomPostBPMNParseListeners().size());
-
+        LOG.debug("MCP - Process Start Event Plugin - Registering BPMN parse listener");
+        List<BpmnParseListener> customPostBPMNParseListeners = processEngineConfiguration.getCustomPostBPMNParseListeners();
+        if (customPostBPMNParseListeners == null) {
+            customPostBPMNParseListeners = new ArrayList<>();
+            processEngineConfiguration.setCustomPostBPMNParseListeners(customPostBPMNParseListeners);
+        }
+        customPostBPMNParseListeners.add(mcpParseListener);
         LOG.info("MCP - Process Start Event Plugin initialized - BPMN parse listener registered");
     }
 
@@ -62,6 +69,7 @@ public class McpProcessStartEventPlugin implements ProcessEnginePlugin {
 
     @Override
     public void postProcessEngineBuild(ProcessEngine processEngine) {
-        LOG.info("MCP - Process Start Event Plugin ready - Process engine built");
+        LOG.debug("MCP - Process Start Event Plugin ready - Process engine built, starting deployed process scan");
+//        this.mcpStartupScanner.scanAndRegisterExistingProcesses();
     }
 }

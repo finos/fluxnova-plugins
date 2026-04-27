@@ -11,3 +11,4 @@ target
 **/node_modules
 **/target
 *.DS_Store
+.flattened-pom.xml

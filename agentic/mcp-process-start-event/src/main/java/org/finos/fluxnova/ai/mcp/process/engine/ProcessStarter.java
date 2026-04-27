@@ -24,20 +24,21 @@ public class ProcessStarter {
      * Starts a Fluxnova process instance with the provided arguments.
      *
      * @param definition the tool definition
-     * @param arguments the arguments passed to the tool
+     * @param arguments  the arguments passed to the tool
      * @return a map containing the process instance details
      */
     public Map<String, Object> startProcess(ToolDefinition definition, Map<String, Object> arguments) {
         try {
             LOG.info("MCP - Starting process '{}' via MCP tool '{}' with args: {}",
-                    definition.processId(), definition.toolName(), arguments);
+                    definition.processKey(), definition.toolName(), arguments);
 
             String businessKey = arguments.get("businessKey") != null
                     ? arguments.get("businessKey").toString()
                     : null;
 
+            // TODO Version
             ProcessInstance instance = runtimeService.startProcessInstanceByKey(
-                    definition.processId(),
+                    definition.processKey(),
                     businessKey,
                     arguments
             );
@@ -53,7 +54,7 @@ public class ProcessStarter {
 
         } catch (Exception e) {
             LOG.error("MCP - Failed to start process '{}' via tool '{}'",
-                    definition.processId(), definition.toolName(), e);
+                    definition.processKey(), definition.toolName(), e);
             throw new RuntimeException("Failed to start process: " + e.getMessage(), e);
         }
     }

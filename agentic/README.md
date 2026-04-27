@@ -60,7 +60,6 @@ Exposes a Fluxnova process engine as an [MCP (Model Context Protocol)](https://m
     <dependency>
         <groupId>org.finos.fluxnova.bpm</groupId>
         <artifactId>fluxnova-engine-plugins-ai-mcp-start-event</artifactId>
-        <version>2.0.0-SNAPSHOT</version>
     </dependency>
 </dependencies>
 ```

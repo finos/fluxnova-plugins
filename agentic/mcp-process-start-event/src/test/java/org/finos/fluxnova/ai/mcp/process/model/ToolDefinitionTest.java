@@ -22,7 +22,7 @@ class ToolDefinitionTest {
                 true
         );
 
-        assertEquals("weather-process", def.processId());
+        assertEquals("weather-process", def.processKey());
         assertEquals("GetWeather", def.toolName());
         assertEquals("Fetches weather data", def.description());
         assertEquals(1, def.parameters().size());
@@ -75,7 +75,7 @@ class ToolDefinitionTest {
     }
 
     @Test
-    void shouldThrowExceptionForNullProcessId() {
+    void shouldThrowExceptionForNullProcessKey() {
         assertThrows(NullPointerException.class,
                 () -> new ToolDefinition(null, "Tool1", "Desc", List.of(), true));
     }

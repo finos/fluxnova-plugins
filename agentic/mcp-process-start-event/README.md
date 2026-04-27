@@ -217,7 +217,7 @@ flowchart TD
 flowchart TD
     A[MCP client calls tool with arguments] --> B[ToolRegistry handler invoked]
     B --> C[ProcessStarter.startProcess<br/>ToolDefinition, arguments]
-    C --> D[RuntimeService.startProcessInstanceByKey<br/>processId, businessKey, variables]
+    C --> D[RuntimeService.startProcessInstanceByKey<br/>processKey, businessKey, variables]
     D --> E[Returns<br/>processInstanceId, businessKey, message]
     
     style A fill:#e1f5ff

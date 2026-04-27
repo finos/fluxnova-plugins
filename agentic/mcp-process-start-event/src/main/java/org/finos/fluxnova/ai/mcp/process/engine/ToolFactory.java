@@ -32,6 +32,12 @@ public class ToolFactory {
      * @param definition the tool definition extracted from BPMN
      */
     public void createAndRegister(ToolDefinition definition) {
+        if (definition == null) {
+            LOG.debug("MCP - No MCP tool definition found");
+            return;
+        }
+        String processKey = definition.processKey();
+        LOG.info("MCP - McpParseListener Found MCP tool definition, registering '{}' in process '{}'", definition.toolName(), processKey);
         try {
             Map<String, ToolConfig.ParameterSpec> paramSpecs = buildParameterSpecs(definition.parameters());
 
@@ -43,14 +49,19 @@ public class ToolFactory {
             );
 
             toolRegistry.register(config);
-            LOG.info("MCP - Registered MCP tool '{}' for process '{}'",
-                    definition.toolName(), definition.processId());
+            LOG.debug("MCP - Registered MCP tool '{}' for process '{}'",
+                    definition.toolName(), processKey);
 
         } catch (Exception e) {
             LOG.error("MCP - Failed to create and register tool '{}' for process '{}'",
-                    definition.toolName(), definition.processId(), e);
+                    definition.toolName(), processKey, e);
         }
     }
+
+    public boolean toolAlreadyRegistered(String toolName) {
+        return toolRegistry.getRegisteredToolNames().contains(toolName);
+    }
+
 
     /**
      * Converts tool parameters to parameter specifications for the registry.
@@ -64,7 +75,6 @@ public class ToolFactory {
                     new ToolConfig.ParameterSpec(param.normalizedType(), !param.optional())
             );
         }
-
         return specs;
     }
 }
