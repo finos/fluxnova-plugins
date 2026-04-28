@@ -3,7 +3,7 @@ package org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract;
 import org.finos.fluxnova.bpm.engine.ProcessEngineException;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolCatalogue;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolEntry;
-import org.finos.fluxnova.bpm.engine.ai.agent.extract.BpmnXmlParser;
+import org.finos.fluxnova.bpm.engine.shared.xml.BpmnXmlParser;
 import org.finos.fluxnova.bpm.engine.impl.util.xml.Element;
 import org.finos.fluxnova.bpm.engine.impl.util.xml.Parse;
 import org.junit.jupiter.api.BeforeEach;

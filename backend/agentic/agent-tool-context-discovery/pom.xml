@@ -15,7 +15,11 @@
   <name>Fluxnova Platform - engine plugins - ai - agent tool context discovery</name>
   <description>Discovers available tools and resolves runtime context for agentic BPMN subprocesses</description>
   <dependencies>
-    <!-- Sibling module: agent-config -->
+    <dependency>
+      <groupId>org.finos.fluxnova.bpm</groupId>
+      <artifactId>fluxnova-engine-plugins-shared</artifactId>
+      <version>${project.version}</version>
+    </dependency>
     <dependency>
       <groupId>org.finos.fluxnova.bpm</groupId>
       <artifactId>fluxnova-engine-plugins-ai-agent-config</artifactId>

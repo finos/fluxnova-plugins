@@ -4,7 +4,7 @@ import org.finos.fluxnova.bpm.engine.ProcessEngineException;
 import org.finos.fluxnova.bpm.engine.RepositoryService;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AgentContextSpecExtractor;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentContextSpec;
-import org.finos.fluxnova.bpm.engine.ai.agent.extract.BpmnXmlParser;
+import org.finos.fluxnova.bpm.engine.shared.xml.BpmnXmlParser;
 import org.finos.fluxnova.bpm.engine.ai.agent.model.AgentConfig;
 import org.finos.fluxnova.bpm.engine.ai.agent.registry.AgentConfigRegistry;
 import org.finos.fluxnova.bpm.engine.impl.util.xml.Element;
