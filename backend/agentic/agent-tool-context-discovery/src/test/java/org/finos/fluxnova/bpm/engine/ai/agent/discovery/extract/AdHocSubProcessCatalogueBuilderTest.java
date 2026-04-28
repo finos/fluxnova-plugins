@@ -682,7 +682,7 @@ class AdHocSubProcessCatalogueBuilderTest {
         }
 
         @Test
-        void build_nonCamundaCompositeChildren_fallsThroughToText() {
+        void build_nonFluxnovaCompositeChildren_fallsThroughToText() {
             String bpmn = """
                     <?xml version="1.0" encoding="UTF-8"?>
                     <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"

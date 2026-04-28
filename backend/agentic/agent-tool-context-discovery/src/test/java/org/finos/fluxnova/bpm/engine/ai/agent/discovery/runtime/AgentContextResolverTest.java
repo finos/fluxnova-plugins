@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class ContextResolverTest {
+class AgentContextResolverTest {
 
     private static final String EXECUTION_ID = "exec-123";
     private static final String PROC_DEF_ID = "proc:1";
@@ -26,11 +26,11 @@ class ContextResolverTest {
     @Mock
     private RuntimeService runtimeService;
 
-    private ContextResolver resolver;
+    private AgentContextResolver resolver;
 
     @BeforeEach
     void setUp() {
-        resolver = new ContextResolver(runtimeService);
+        resolver = new AgentContextResolver(runtimeService);
     }
 
     private Map<String, Object> allVariables() {

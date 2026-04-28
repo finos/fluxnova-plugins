@@ -22,7 +22,7 @@ public class AgentToolCatalogueRegistry {
     private static final Logger LOG = LoggerFactory.getLogger(AgentToolCatalogueRegistry.class);
 
     private final ConcurrentHashMap<String, AgentToolCatalogue> catalogues = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Boolean> scanned = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Boolean> scanResults = new ConcurrentHashMap<>();
 
     private final RepositoryService repositoryService;
     private final AgentConfigRegistry agentConfigRegistry;
@@ -43,12 +43,12 @@ public class AgentToolCatalogueRegistry {
 
     public void unregisterAll() {
         catalogues.clear();
-        scanned.clear();
+        scanResults.clear();
     }
 
     private void ensureScanned(String processDefinitionId, String elementId) {
-        String k = key(processDefinitionId, elementId);
-        scanned.computeIfAbsent(k, ignored -> doScan(processDefinitionId, elementId));
+        String cacheKey = key(processDefinitionId, elementId);
+        scanResults.computeIfAbsent(cacheKey, ignored -> doScan(processDefinitionId, elementId));
     }
 
     private Boolean doScan(String processDefinitionId, String elementId) {
@@ -61,13 +61,13 @@ public class AgentToolCatalogueRegistry {
             Parse parse = new BpmnXmlParser().createParse().sourceInputStream(xml).execute();
             Element root = parse.getRootElement();
 
-            String toolScope = config.get().toolScopeElementId();
-            Element scopeElement = findElementById(root, toolScope);
-            if (scopeElement == null) {
-                LOG.warn("Tool scope element '{}' not found in process definition '{}'", toolScope, processDefinitionId);
+            String toolScopeElementId = config.get().toolScopeElementId();
+            Element toolScopeElement = findElementById(root, toolScopeElementId);
+            if (toolScopeElement == null) {
+                LOG.warn("Tool scope element '{}' not found in process definition '{}'", toolScopeElementId, processDefinitionId);
                 return Boolean.TRUE;
             }
-            AgentToolCatalogue catalogue = catalogueBuilder.build(scopeElement, processDefinitionId);
+            AgentToolCatalogue catalogue = catalogueBuilder.build(toolScopeElement, processDefinitionId);
             catalogues.put(key(processDefinitionId, elementId), catalogue);
             return Boolean.TRUE;
         } catch (ProcessEngineException e) {

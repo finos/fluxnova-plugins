@@ -12,20 +12,20 @@ import java.util.stream.Stream;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 
-public class ContextResolver {
+public class AgentContextResolver {
 
     private static final String AGENT_VAR_PREFIX = "_agent";
 
     private final RuntimeService runtimeService;
 
-    public ContextResolver(RuntimeService runtimeService) {
+    public AgentContextResolver(RuntimeService runtimeService) {
         this.runtimeService = runtimeService;
     }
 
     public ResolvedContext resolve(String executionId, AgentContextSpec spec) {
-        Map<String, Object> all = runtimeService.getVariables(executionId);
+        Map<String, Object> processVariables = runtimeService.getVariables(executionId);
 
-        Stream<Map.Entry<String, Object>> filtered = all.entrySet().stream()
+        Stream<Map.Entry<String, Object>> filtered = processVariables.entrySet().stream()
                 .filter(e -> !e.getKey().startsWith(AGENT_VAR_PREFIX));
 
         if (!spec.declaredVariables().isEmpty()) {

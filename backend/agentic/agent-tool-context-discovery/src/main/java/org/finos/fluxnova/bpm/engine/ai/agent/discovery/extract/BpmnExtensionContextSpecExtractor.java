@@ -15,24 +15,24 @@ public class BpmnExtensionContextSpecExtractor implements AgentContextSpecExtrac
     @Override
     public AgentContextSpec extract(Element adHocElement, String processDefinitionId) {
         String elementId = adHocElement.attribute("id");
-        Element ext = adHocElement.element("extensionElements");
-        if (ext == null) {
+        Element extensionElements = adHocElement.element("extensionElements");
+        if (extensionElements == null) {
             return new AgentContextSpec(processDefinitionId, elementId, List.of());
         }
 
-        Element contextElement = ext.elementNS(AGENT_NS, "context");
+        Element contextElement = extensionElements.elementNS(AGENT_NS, "context");
         if (contextElement == null) {
             return new AgentContextSpec(processDefinitionId, elementId, List.of());
         }
 
-        List<ContextVariableDeclaration> vars = new ArrayList<>();
+        List<ContextVariableDeclaration> variableDeclarations = new ArrayList<>();
         for (Element variable : contextElement.elementsNS(AGENT_NS, "variable")) {
             String name = variable.attribute("name");
             if (name != null && !name.isBlank()) {
-                vars.add(new ContextVariableDeclaration(name));
+                variableDeclarations.add(new ContextVariableDeclaration(name));
             }
         }
 
-        return new AgentContextSpec(processDefinitionId, elementId, vars);
+        return new AgentContextSpec(processDefinitionId, elementId, variableDeclarations);
     }
 }

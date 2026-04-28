@@ -7,7 +7,7 @@ import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.BpmnExtensionCon
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.*;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry.AgentContextSpecRegistry;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry.AgentToolCatalogueRegistry;
-import org.finos.fluxnova.bpm.engine.ai.agent.discovery.runtime.ContextResolver;
+import org.finos.fluxnova.bpm.engine.ai.agent.discovery.runtime.AgentContextResolver;
 import org.finos.fluxnova.bpm.engine.ai.agent.model.AgentConfig;
 import org.finos.fluxnova.bpm.engine.ai.agent.registry.AgentConfigRegistry;
 import org.junit.jupiter.api.BeforeEach;
@@ -125,7 +125,7 @@ class DiscoveryIntegrationTest {
 
     private AgentToolCatalogueRegistry catalogueRegistry;
     private AgentContextSpecRegistry contextSpecRegistry;
-    private ContextResolver contextResolver;
+    private AgentContextResolver agentContextResolver;
 
     @BeforeEach
     void setUp() {
@@ -133,7 +133,7 @@ class DiscoveryIntegrationTest {
                 repositoryService, agentConfigRegistry, new AdHocSubProcessCatalogueBuilder());
         contextSpecRegistry = new AgentContextSpecRegistry(
                 repositoryService, agentConfigRegistry, new BpmnExtensionContextSpecExtractor());
-        contextResolver = new ContextResolver(runtimeService);
+        agentContextResolver = new AgentContextResolver(runtimeService);
     }
 
     private AgentConfig config() {
@@ -184,7 +184,7 @@ class DiscoveryIntegrationTest {
         }
 
         @Test
-        void fullFlow_contextResolverUsesSpecToFilterVariables() {
+        void fullFlow_agentContextResolverUsesSpecToFilterVariables() {
             when(agentConfigRegistry.resolve(PROC_DEF_ID, ELEMENT_ID)).thenReturn(Optional.of(config()));
             when(repositoryService.getProcessModel(PROC_DEF_ID)).thenReturn(bpmnStream(FULL_BPMN));
 
@@ -201,7 +201,7 @@ class DiscoveryIntegrationTest {
             when(runtimeService.getVariables(EXECUTION_ID)).thenReturn(vars);
 
             // Resolve context
-            ResolvedContext resolved = contextResolver.resolve(EXECUTION_ID, spec);
+            ResolvedContext resolved = agentContextResolver.resolve(EXECUTION_ID, spec);
 
             // Only declared variables, minus _agent prefixed
             assertEquals(2, resolved.variables().size());
@@ -226,7 +226,7 @@ class DiscoveryIntegrationTest {
             vars.put("_agentState", "RUNNING");
             when(runtimeService.getVariables(EXECUTION_ID)).thenReturn(vars);
 
-            ResolvedContext resolved = contextResolver.resolve(EXECUTION_ID, spec);
+            ResolvedContext resolved = agentContextResolver.resolve(EXECUTION_ID, spec);
 
             assertEquals(2, resolved.variables().size());
             assertTrue(resolved.variables().containsKey("customerId"));

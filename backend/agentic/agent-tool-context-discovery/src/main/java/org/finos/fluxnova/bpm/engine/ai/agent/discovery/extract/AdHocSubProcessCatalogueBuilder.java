@@ -74,8 +74,8 @@ public class AdHocSubProcessCatalogueBuilder implements AgentToolCatalogueBuilde
 
     private Set<String> collectSequenceFlowTargets(Element scopeElement) {
         Set<String> targets = new HashSet<>();
-        for (Element el : scopeElement.elements("sequenceFlow")) {
-            String targetRef = el.attribute("targetRef");
+        for (Element sequenceFlow : scopeElement.elements("sequenceFlow")) {
+            String targetRef = sequenceFlow.attribute("targetRef");
             if (targetRef != null) {
                 targets.add(targetRef);
             }
@@ -95,26 +95,26 @@ public class AdHocSubProcessCatalogueBuilder implements AgentToolCatalogueBuilde
     }
 
     private Set<String> extractReads(Element element) {
-        Element ext = element.element("extensionElements");
-        if (ext == null) return Set.of();
-        Element io = ext.elementNS(CAMUNDA_NS, "inputOutput");
-        if (io == null) return Set.of();
+        Element extensionElements = element.element("extensionElements");
+        if (extensionElements == null) return Set.of();
+        Element inputOutputElement = extensionElements.elementNS(CAMUNDA_NS, "inputOutput");
+        if (inputOutputElement == null) return Set.of();
 
         Set<String> reads = new LinkedHashSet<>();
-        for (Element inputParam : io.elementsNS(CAMUNDA_NS, "inputParameter")) {
+        for (Element inputParam : inputOutputElement.elementsNS(CAMUNDA_NS, "inputParameter")) {
             collectReads(inputParam, reads);
         }
         return reads;
     }
 
     private Set<String> extractWrites(Element element) {
-        Element ext = element.element("extensionElements");
-        if (ext == null) return Set.of();
-        Element io = ext.elementNS(CAMUNDA_NS, "inputOutput");
-        if (io == null) return Set.of();
+        Element extensionElements = element.element("extensionElements");
+        if (extensionElements == null) return Set.of();
+        Element inputOutputElement = extensionElements.elementNS(CAMUNDA_NS, "inputOutput");
+        if (inputOutputElement == null) return Set.of();
 
         Set<String> writes = new LinkedHashSet<>();
-        for (Element outputParam : io.elementsNS(CAMUNDA_NS, "outputParameter")) {
+        for (Element outputParam : inputOutputElement.elementsNS(CAMUNDA_NS, "outputParameter")) {
             String name = outputParam.attribute("name");
             if (name != null) {
                 writes.add(name);
@@ -125,8 +125,8 @@ public class AdHocSubProcessCatalogueBuilder implements AgentToolCatalogueBuilde
 
     static Optional<String> scopeReadFor(String expression) {
         if (expression == null) return Optional.empty();
-        Matcher m = SIMPLE_EL.matcher(expression);
-        return m.matches() ? Optional.of(m.group(1)) : Optional.empty();
+        Matcher matcher = SIMPLE_EL.matcher(expression);
+        return matcher.matches() ? Optional.of(matcher.group(1)) : Optional.empty();
     }
 
     static void collectReads(Element node, Set<String> out) {
@@ -134,14 +134,14 @@ public class AdHocSubProcessCatalogueBuilder implements AgentToolCatalogueBuilde
     }
 
     private static void walk(Element node, Set<String> out) {
-        if (isCamundaScript(node)) return;
-        if (isCamundaList(node)) {
+        if (isFluxnovaScript(node)) return;
+        if (isFluxnovaList(node)) {
             for (Element value : node.elementsNS(CAMUNDA_NS, "value")) {
                 walk(value, out);
             }
             return;
         }
-        if (isCamundaMap(node)) {
+        if (isFluxnovaMap(node)) {
             for (Element entry : node.elementsNS(CAMUNDA_NS, "entry")) {
                 walk(entry, out);
             }
@@ -149,7 +149,7 @@ public class AdHocSubProcessCatalogueBuilder implements AgentToolCatalogueBuilde
         }
         // Check for composite children (list, map, script) before falling through to text
         for (Element child : node.elements()) {
-            if (isCamundaList(child) || isCamundaMap(child) || isCamundaScript(child)) {
+            if (isFluxnovaList(child) || isFluxnovaMap(child) || isFluxnovaScript(child)) {
                 walk(child, out);
                 return;
             }
@@ -157,17 +157,17 @@ public class AdHocSubProcessCatalogueBuilder implements AgentToolCatalogueBuilde
         scopeReadFor(node.getText()).ifPresent(out::add);
     }
 
-    private static boolean isCamundaScript(Element node) {
+    private static boolean isFluxnovaScript(Element node) {
         return "script".equals(node.getTagName())
                 && CAMUNDA_NS.getNamespaceUri().equals(node.getUri());
     }
 
-    private static boolean isCamundaList(Element node) {
+    private static boolean isFluxnovaList(Element node) {
         return "list".equals(node.getTagName())
                 && CAMUNDA_NS.getNamespaceUri().equals(node.getUri());
     }
 
-    private static boolean isCamundaMap(Element node) {
+    private static boolean isFluxnovaMap(Element node) {
         return "map".equals(node.getTagName())
                 && CAMUNDA_NS.getNamespaceUri().equals(node.getUri());
     }

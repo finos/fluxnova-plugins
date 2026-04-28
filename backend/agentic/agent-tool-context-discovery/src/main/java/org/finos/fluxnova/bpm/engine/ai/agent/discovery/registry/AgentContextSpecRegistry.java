@@ -22,7 +22,7 @@ public class AgentContextSpecRegistry {
     private static final Logger LOG = LoggerFactory.getLogger(AgentContextSpecRegistry.class);
 
     private final ConcurrentHashMap<String, AgentContextSpec> specs = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Boolean> scanned = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Boolean> scanResults = new ConcurrentHashMap<>();
 
     private final RepositoryService repositoryService;
     private final AgentConfigRegistry agentConfigRegistry;
@@ -43,12 +43,12 @@ public class AgentContextSpecRegistry {
 
     public void unregisterAll() {
         specs.clear();
-        scanned.clear();
+        scanResults.clear();
     }
 
     private void ensureScanned(String processDefinitionId, String elementId) {
-        String k = key(processDefinitionId, elementId);
-        scanned.computeIfAbsent(k, ignored -> doScan(processDefinitionId, elementId));
+        String cacheKey = key(processDefinitionId, elementId);
+        scanResults.computeIfAbsent(cacheKey, ignored -> doScan(processDefinitionId, elementId));
     }
 
     private Boolean doScan(String processDefinitionId, String elementId) {
@@ -61,13 +61,13 @@ public class AgentContextSpecRegistry {
             Parse parse = new BpmnXmlParser().createParse().sourceInputStream(xml).execute();
             Element root = parse.getRootElement();
 
-            Element adHocElement = findElementById(root, elementId);
-            if (adHocElement == null) {
+            Element agentSubprocessElement = findElementById(root, elementId);
+            if (agentSubprocessElement == null) {
                 LOG.warn("Ad-hoc subprocess element '{}' not found in process definition '{}'", elementId, processDefinitionId);
                 return Boolean.TRUE;
             }
 
-            AgentContextSpec spec = extractor.extract(adHocElement, processDefinitionId);
+            AgentContextSpec spec = extractor.extract(agentSubprocessElement, processDefinitionId);
             specs.put(key(processDefinitionId, elementId), spec);
             return Boolean.TRUE; 
         } catch (ProcessEngineException e) {

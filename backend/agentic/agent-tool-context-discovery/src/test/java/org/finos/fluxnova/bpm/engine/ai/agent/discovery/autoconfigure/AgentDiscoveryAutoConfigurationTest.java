@@ -9,7 +9,7 @@ import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.BpmnExtensionCon
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.lifecycle.AgentDiscoveryUndeployListener;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry.AgentContextSpecRegistry;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry.AgentToolCatalogueRegistry;
-import org.finos.fluxnova.bpm.engine.ai.agent.discovery.runtime.ContextResolver;
+import org.finos.fluxnova.bpm.engine.ai.agent.discovery.runtime.AgentContextResolver;
 import org.finos.fluxnova.bpm.engine.ai.agent.extract.AgentConfigExtractor;
 import org.finos.fluxnova.bpm.engine.ai.agent.registry.AgentConfigRegistry;
 import org.junit.jupiter.api.AfterEach;
@@ -48,7 +48,7 @@ class AgentDiscoveryAutoConfigurationTest {
         assertNotNull(context.getBean(AgentContextSpecExtractor.class));
         assertNotNull(context.getBean(AgentToolCatalogueRegistry.class));
         assertNotNull(context.getBean(AgentContextSpecRegistry.class));
-        assertNotNull(context.getBean(ContextResolver.class));
+        assertNotNull(context.getBean(AgentContextResolver.class));
         assertNotNull(context.getBean(AgentDiscoveryUndeployListener.class));
     }
 
