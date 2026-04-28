@@ -41,13 +41,9 @@ public class McpProcessStartEventPlugin implements ProcessEnginePlugin {
     private static final Logger LOG = LoggerFactory.getLogger(McpProcessStartEventPlugin.class);
 
     private final McpParseListener mcpParseListener;
-//    private final McpStartupScanner mcpStartupScanner;
 
-    public McpProcessStartEventPlugin(McpParseListener mcpParseListener
-//            , McpStartupScanner mcpStartupScanner
-    ) {
+    public McpProcessStartEventPlugin(McpParseListener mcpParseListener) {
         this.mcpParseListener = mcpParseListener;
-//        this.mcpStartupScanner = mcpStartupScanner;
     }
 
     @Override
@@ -70,6 +66,5 @@ public class McpProcessStartEventPlugin implements ProcessEnginePlugin {
     @Override
     public void postProcessEngineBuild(ProcessEngine processEngine) {
         LOG.debug("MCP - Process Start Event Plugin ready - Process engine built, starting deployed process scan");
-//        this.mcpStartupScanner.scanAndRegisterExistingProcesses();
     }
 }

@@ -23,17 +23,12 @@ import static org.finos.fluxnova.ai.mcp.process.model.MCPConstants.MCP_NAMESPACE
  * MCP tools.
  * </p>
  * <p>
- * To recreate this scenario, remove this dependency from POM, startup server and deploy a process.
- * Then shut down server and re-enable dependency. On startup, this scanner will detect the process
- * and register the tool.
- * </p>
- * <p>
  * The scanner:
  * <ul>
  *   <li>Queries the repository for all latest-version process definitions</li>
  *   <li>Retrieves and parses the BPMN XML for each process</li>
  *   <li>Extracts MCP tool metadata from start events</li>
- *   <li>Registers discovered tools with the {@code ToolRegistry}</li>
+ *   <li>Registers discovered tools with the {@code ToolRegistry}, avoiding duplicates.</li>
  * </ul>
  * </p>
  * <p>
