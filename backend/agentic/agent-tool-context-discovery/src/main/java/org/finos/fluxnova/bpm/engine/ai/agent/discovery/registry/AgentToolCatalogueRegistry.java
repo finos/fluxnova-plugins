@@ -20,6 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class AgentToolCatalogueRegistry {
 
     private static final Logger LOG = LoggerFactory.getLogger(AgentToolCatalogueRegistry.class);
+    private static final String AD_HOC_SUB_PROCESS_TAG = "adHocSubProcess";
 
     private final ConcurrentHashMap<String, AgentToolCatalogue> catalogues = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Boolean> scanResults = new ConcurrentHashMap<>();
@@ -64,11 +65,20 @@ public class AgentToolCatalogueRegistry {
             String toolScopeElementId = config.get().toolScopeElementId();
             Element toolScopeElement = findElementById(root, toolScopeElementId);
             if (toolScopeElement == null) {
-                LOG.warn("Tool scope element '{}' not found in process definition '{}'", toolScopeElementId, processDefinitionId);
+                LOG.warn("Tool scope element '{}' not found in process definition '{}'", toolScopeElementId,
+                        processDefinitionId);
                 return Boolean.TRUE;
             }
+            
+            if (!AD_HOC_SUB_PROCESS_TAG.equals(toolScopeElement.getTagName())) {
+                LOG.warn("Tool scope element '{}' in process definition '{}' is not an ad-hoc subprocess (found: '{}')",
+                        toolScopeElementId, processDefinitionId, toolScopeElement.getTagName());
+                return Boolean.TRUE;
+            }
+
             AgentToolCatalogue catalogue = catalogueBuilder.build(toolScopeElement, processDefinitionId);
             catalogues.put(key(processDefinitionId, elementId), catalogue);
+            
             return Boolean.TRUE;
         } catch (ProcessEngineException e) {
             LOG.error("Invalid tool configuration in process definition '{}': {}",

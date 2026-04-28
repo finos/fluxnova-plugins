@@ -158,6 +158,33 @@ class AgentToolCatalogueRegistryTest {
     }
 
     @Test
+    void resolve_whenToolScopeElementIsNotAdHocSubProcess_returnsEmpty() {
+        String bpmnWithRegularSubProcess = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                             xmlns:agent="http://fluxnova.finos.org/schema/1.0/ai/agent">
+                  <process id="creditCheck">
+                    <subProcess id="creditCheckAgent">
+                      <extensionElements>
+                        <agent:config provider="anthropic" model="claude-sonnet-4-6"
+                                      systemPrompt="You are a credit analyst."/>
+                      </extensionElements>
+                      <serviceTask id="taskA" name="Task A"/>
+                    </subProcess>
+                  </process>
+                </definitions>
+                """;
+        when(agentConfigRegistry.resolve(PROC_DEF_ID, ELEMENT_ID)).thenReturn(Optional.of(config()));
+        when(repositoryService.getProcessModel(PROC_DEF_ID))
+                .thenReturn(new ByteArrayInputStream(bpmnWithRegularSubProcess.getBytes(StandardCharsets.UTF_8)));
+
+        Optional<AgentToolCatalogue> result = registry.resolve(PROC_DEF_ID, ELEMENT_ID);
+
+        assertTrue(result.isEmpty());
+        verifyNoInteractions(catalogueBuilder);
+    }
+
+    @Test
     void resolve_whenBuilderThrowsProcessEngineException_returnsEmpty() {
         when(agentConfigRegistry.resolve(PROC_DEF_ID, ELEMENT_ID)).thenReturn(Optional.of(config()));
         when(repositoryService.getProcessModel(PROC_DEF_ID))

@@ -178,6 +178,34 @@ class AgentContextSpecRegistryTest {
     }
 
     @Test
+    void resolve_whenElementIsNotAdHocSubProcess_returnsEmpty() {
+        String bpmnWithRegularSubProcess = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                             xmlns:agent="http://fluxnova.finos.org/schema/1.0/ai/agent">
+                  <process id="creditCheck">
+                    <subProcess id="creditCheckAgent">
+                      <extensionElements>
+                        <agent:config provider="anthropic" model="claude-sonnet-4-6"
+                                      systemPrompt="You are a credit analyst."/>
+                        <agent:context>
+                          <agent:variable name="customerId"/>
+                        </agent:context>
+                      </extensionElements>
+                    </subProcess>
+                  </process>
+                </definitions>
+                """;
+        when(agentConfigRegistry.resolve(PROC_DEF_ID, ELEMENT_ID)).thenReturn(Optional.of(config()));
+        when(repositoryService.getProcessModel(PROC_DEF_ID))
+                .thenReturn(new ByteArrayInputStream(bpmnWithRegularSubProcess.getBytes(StandardCharsets.UTF_8)));
+
+        Optional<AgentContextSpec> result = registry.resolve(PROC_DEF_ID, ELEMENT_ID);
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
     void resolve_whenProcessEngineExceptionDuringParse_returnsEmpty() {
         when(agentConfigRegistry.resolve(PROC_DEF_ID, ELEMENT_ID)).thenReturn(Optional.of(config()));
         when(repositoryService.getProcessModel(PROC_DEF_ID))

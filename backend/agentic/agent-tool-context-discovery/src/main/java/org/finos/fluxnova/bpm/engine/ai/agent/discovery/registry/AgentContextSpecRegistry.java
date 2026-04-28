@@ -20,6 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class AgentContextSpecRegistry {
 
     private static final Logger LOG = LoggerFactory.getLogger(AgentContextSpecRegistry.class);
+    private static final String AD_HOC_SUB_PROCESS_TAG = "adHocSubProcess";
 
     private final ConcurrentHashMap<String, AgentContextSpec> specs = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Boolean> scanResults = new ConcurrentHashMap<>();
@@ -67,8 +68,15 @@ public class AgentContextSpecRegistry {
                 return Boolean.TRUE;
             }
 
+            if (!AD_HOC_SUB_PROCESS_TAG.equals(agentSubprocessElement.getTagName())) {
+                LOG.warn("Element '{}' in process definition '{}' is not an ad-hoc subprocess (found: '{}')",
+                        elementId, processDefinitionId, agentSubprocessElement.getTagName());
+                return Boolean.TRUE;
+            }
+
             AgentContextSpec spec = extractor.extract(agentSubprocessElement, processDefinitionId);
             specs.put(key(processDefinitionId, elementId), spec);
+            
             return Boolean.TRUE; 
         } catch (ProcessEngineException e) {
             LOG.error("Invalid tool configuration in process definition '{}': {}",
