@@ -20,7 +20,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public class AgentContextSpecRegistry {
 
     private static final Logger LOG = LoggerFactory.getLogger(AgentContextSpecRegistry.class);
-    private static final String AD_HOC_SUB_PROCESS_TAG = "adHocSubProcess";
 
     private final ConcurrentHashMap<String, Optional<AgentContextSpec>> cache = new ConcurrentHashMap<>();
 
@@ -66,12 +65,6 @@ public class AgentContextSpecRegistry {
             Element agentSubprocessElement = findElementById(root, elementId);
             if (agentSubprocessElement == null) {
                 LOG.warn("Ad-hoc subprocess element '{}' not found in process definition '{}'", elementId, processDefinitionId);
-                return Optional.empty();
-            }
-
-            if (!AD_HOC_SUB_PROCESS_TAG.equals(agentSubprocessElement.getTagName())) {
-                LOG.warn("Element '{}' in process definition '{}' is not an ad-hoc subprocess (found: '{}')",
-                        elementId, processDefinitionId, agentSubprocessElement.getTagName());
                 return Optional.empty();
             }
 

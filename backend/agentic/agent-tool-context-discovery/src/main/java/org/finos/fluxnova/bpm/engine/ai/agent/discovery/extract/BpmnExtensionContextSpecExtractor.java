@@ -15,9 +15,9 @@ import java.util.List;
 public class BpmnExtensionContextSpecExtractor implements AgentContextSpecExtractor {
 
     @Override
-    public AgentContextSpec extract(Element adHocElement, String processDefinitionId) {
-        String elementId = adHocElement.attribute("id");
-        Element extensionElements = adHocElement.element("extensionElements");
+    public AgentContextSpec extract(Element element, String processDefinitionId) {
+        String elementId = element.attribute("id");
+        Element extensionElements = element.element("extensionElements");
         if (extensionElements == null) {
             return new AgentContextSpec(processDefinitionId, elementId, List.of());
         }

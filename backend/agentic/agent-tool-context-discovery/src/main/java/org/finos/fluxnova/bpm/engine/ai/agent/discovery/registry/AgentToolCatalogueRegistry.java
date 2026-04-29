@@ -20,7 +20,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public class AgentToolCatalogueRegistry {
 
     private static final Logger LOG = LoggerFactory.getLogger(AgentToolCatalogueRegistry.class);
-    private static final String AD_HOC_SUB_PROCESS_TAG = "adHocSubProcess";
 
     private final ConcurrentHashMap<String, Optional<AgentToolCatalogue>> cache = new ConcurrentHashMap<>();
 
@@ -68,12 +67,6 @@ public class AgentToolCatalogueRegistry {
             if (toolScopeElement == null) {
                 LOG.warn("Tool scope element '{}' not found in process definition '{}'", toolScopeElementId,
                         processDefinitionId);
-                return Optional.empty();
-            }
-
-            if (!AD_HOC_SUB_PROCESS_TAG.equals(toolScopeElement.getTagName())) {
-                LOG.warn("Tool scope element '{}' in process definition '{}' is not an ad-hoc subprocess (found: '{}')",
-                        toolScopeElementId, processDefinitionId, toolScopeElement.getTagName());
                 return Optional.empty();
             }
 
