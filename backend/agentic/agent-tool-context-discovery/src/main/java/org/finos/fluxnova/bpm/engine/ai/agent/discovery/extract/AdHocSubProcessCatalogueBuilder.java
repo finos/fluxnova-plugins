@@ -62,13 +62,6 @@ public class AdHocSubProcessCatalogueBuilder implements AgentToolCatalogueBuilde
                             + String.join("; ", errors));
         }
 
-        if (tools.isEmpty()) {
-            throw new ProcessEngineException(
-                    "No eligible tools found in scope '" + scopeElement.attribute("id")
-                            + "' for process definition '" + processDefinitionId
-                            + "'. An ad-hoc subprocess must contain at least one triggerable activity.");
-        }
-
         return new AgentToolCatalogue(processDefinitionId, scopeElement.attribute("id"), tools);
     }
 

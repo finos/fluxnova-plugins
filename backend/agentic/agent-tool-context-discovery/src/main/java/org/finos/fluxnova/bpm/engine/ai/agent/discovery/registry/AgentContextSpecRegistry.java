@@ -78,10 +78,6 @@ public class AgentContextSpecRegistry {
             specs.put(key(processDefinitionId, elementId), spec);
             
             return Boolean.TRUE; 
-        } catch (ProcessEngineException e) {
-            LOG.error("Invalid tool configuration in process definition '{}': {}",
-                    processDefinitionId, e.getMessage());
-            return Boolean.TRUE;
         } catch (IOException e) {
             LOG.error("Failed to scan process definition '{}' for context spec", processDefinitionId, e);
             // if IOException occurs, return null so we can retry next time

@@ -78,11 +78,7 @@ public class AgentToolCatalogueRegistry {
 
             AgentToolCatalogue catalogue = catalogueBuilder.build(toolScopeElement, processDefinitionId);
             catalogues.put(key(processDefinitionId, elementId), catalogue);
-            
-            return Boolean.TRUE;
-        } catch (ProcessEngineException e) {
-            LOG.error("Invalid tool configuration in process definition '{}': {}",
-                    processDefinitionId, e.getMessage());
+
             return Boolean.TRUE;
         } catch (IOException e) {
             LOG.error("Failed to scan process definition '{}' for tool catalogue", processDefinitionId, e);
