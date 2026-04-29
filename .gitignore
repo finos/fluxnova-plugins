@@ -4,6 +4,7 @@
 .env.development.local
 .env.test.local
 .env.production.local
+.vscode
 
 .idea
 target
@@ -15,16 +16,3 @@ build.properties
 bin
 .metadata
 transaction.log
-nbactions*.xml
-nb-configuration.xml
-/webapps/fox-platform-tasklist/server-work
-dependency-reduced-pom.xml
-faces-config.NavData
-*.iml
-*.sublime-project
-*.sublime-workspace
-*.h2.db
-*.lock.db
-**/overlays
-**/node_modules
-camunda-h2-dbs
