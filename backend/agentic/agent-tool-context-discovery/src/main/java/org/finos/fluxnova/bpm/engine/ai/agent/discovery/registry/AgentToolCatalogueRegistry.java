@@ -1,12 +1,12 @@
 package org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry;
 
-import org.finos.fluxnova.bpm.engine.ProcessEngineException;
 import org.finos.fluxnova.bpm.engine.RepositoryService;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AgentToolCatalogueBuilder;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolCatalogue;
 import org.finos.fluxnova.bpm.engine.shared.xml.BpmnXmlParser;
 import org.finos.fluxnova.bpm.engine.ai.agent.model.AgentConfig;
 import org.finos.fluxnova.bpm.engine.ai.agent.registry.AgentConfigRegistry;
+import org.finos.fluxnova.bpm.engine.exception.NotFoundException;
 import org.finos.fluxnova.bpm.engine.impl.util.xml.Element;
 import org.finos.fluxnova.bpm.engine.impl.util.xml.Parse;
 import org.slf4j.Logger;
@@ -22,8 +22,7 @@ public class AgentToolCatalogueRegistry {
     private static final Logger LOG = LoggerFactory.getLogger(AgentToolCatalogueRegistry.class);
     private static final String AD_HOC_SUB_PROCESS_TAG = "adHocSubProcess";
 
-    private final ConcurrentHashMap<String, AgentToolCatalogue> catalogues = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Boolean> scanResults = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Optional<AgentToolCatalogue>> cache = new ConcurrentHashMap<>();
 
     private final RepositoryService repositoryService;
     private final AgentConfigRegistry agentConfigRegistry;
@@ -38,27 +37,29 @@ public class AgentToolCatalogueRegistry {
     }
 
     public Optional<AgentToolCatalogue> resolve(String processDefinitionId, String elementId) {
-        ensureScanned(processDefinitionId, elementId);
-        return Optional.ofNullable(catalogues.get(key(processDefinitionId, elementId)));
+        String cacheKey = key(processDefinitionId, elementId);
+        Optional<AgentToolCatalogue> result = cache.computeIfAbsent(cacheKey,
+                ignored -> doScan(processDefinitionId, elementId));
+        // The null result hasn't been stored, but return an empty optional until the rescan (DISCUSS)
+        return result != null ? result : Optional.empty();
     }
 
     public void unregisterAll() {
-        catalogues.clear();
-        scanResults.clear();
+        cache.clear();
     }
 
-    private void ensureScanned(String processDefinitionId, String elementId) {
-        String cacheKey = key(processDefinitionId, elementId);
-        scanResults.computeIfAbsent(cacheKey, ignored -> doScan(processDefinitionId, elementId));
-    }
-
-    private Boolean doScan(String processDefinitionId, String elementId) {
+    private Optional<AgentToolCatalogue> doScan(String processDefinitionId, String elementId) {
         Optional<AgentConfig> config = agentConfigRegistry.resolve(processDefinitionId, elementId);
         if (config.isEmpty()) {
-            return Boolean.TRUE;
+            return Optional.empty();
         }
 
         try (InputStream xml = repositoryService.getProcessModel(processDefinitionId)) {
+            if (xml == null) {
+                LOG.warn("Process model not found for '{}'", processDefinitionId);
+                return Optional.empty();
+            }
+
             Parse parse = new BpmnXmlParser().createParse().sourceInputStream(xml).execute();
             Element root = parse.getRootElement();
 
@@ -67,23 +68,23 @@ public class AgentToolCatalogueRegistry {
             if (toolScopeElement == null) {
                 LOG.warn("Tool scope element '{}' not found in process definition '{}'", toolScopeElementId,
                         processDefinitionId);
-                return Boolean.TRUE;
+                return Optional.empty();
             }
-            
+
             if (!AD_HOC_SUB_PROCESS_TAG.equals(toolScopeElement.getTagName())) {
                 LOG.warn("Tool scope element '{}' in process definition '{}' is not an ad-hoc subprocess (found: '{}')",
                         toolScopeElementId, processDefinitionId, toolScopeElement.getTagName());
-                return Boolean.TRUE;
+                return Optional.empty();
             }
 
             AgentToolCatalogue catalogue = catalogueBuilder.build(toolScopeElement, processDefinitionId);
-            catalogues.put(key(processDefinitionId, elementId), catalogue);
-
-            return Boolean.TRUE;
+            return Optional.of(catalogue);
         } catch (IOException e) {
             LOG.error("Failed to scan process definition '{}' for tool catalogue", processDefinitionId, e);
-            // if IOException occurs, return null so we can retry next time
-            return null;
+            return null; // transient failure — don't cache, retry next time
+        } catch (NotFoundException e) {
+            LOG.error("Process definition '{}' not found", processDefinitionId, e);
+            throw e;
         }
     }
 
