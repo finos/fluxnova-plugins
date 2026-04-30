@@ -1,5 +1,6 @@
 package org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry;
 
+import org.finos.fluxnova.bpm.engine.AuthorizationException;
 import org.finos.fluxnova.bpm.engine.RepositoryService;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AgentToolCatalogueBuilder;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentContextSpec;
@@ -65,7 +66,7 @@ public class AgentToolCatalogueRegistry {
             Parse parse = new BpmnXmlParser().createParse().sourceInputStream(xml).execute();
             Element root = parse.getRootElement();
 
-            String toolScopeElementId = config.get().toolScopeElementId();
+            String toolScopeElementId = config.toolScopeElementId();
             Element toolScopeElement = findElementById(root, toolScopeElementId);
             if (toolScopeElement == null) {
                 LOG.warn("Tool scope element '{}' not found in process definition '{}'", toolScopeElementId,
@@ -74,12 +75,15 @@ public class AgentToolCatalogueRegistry {
             }
 
             AgentToolCatalogue catalogue = catalogueBuilder.build(toolScopeElement, processDefinitionId);
-            return null;
+            return catalogue;
         } catch (IOException e) {
             LOG.error("Failed to scan process definition '{}' for tool catalogue", processDefinitionId, e);
             return null; // transient failure — don't cache, retry next time
         } catch (NotFoundException e) {
             LOG.error("Process definition '{}' not found", processDefinitionId, e);
+            throw e;
+        } catch (AuthorizationException e) {
+            LOG.error("Unauthorized process definition access attempt on '{}'", processDefinitionId, e);
             throw e;
         }
     }

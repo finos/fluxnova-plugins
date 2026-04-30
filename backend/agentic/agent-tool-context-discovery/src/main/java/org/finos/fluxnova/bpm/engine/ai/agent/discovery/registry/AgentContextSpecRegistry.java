@@ -67,7 +67,8 @@ public class AgentContextSpecRegistry {
 
             Element agentSubprocessElement = findElementById(root, elementId);
             if (agentSubprocessElement == null) {
-                LOG.warn("Ad-hoc subprocess element '{}' not found in process definition '{}'", elementId, processDefinitionId);
+                LOG.warn("Ad-hoc subprocess element '{}' not found in process definition '{}'", elementId,
+                        processDefinitionId);
                 return null;
             }
 
@@ -81,6 +82,7 @@ public class AgentContextSpecRegistry {
             throw e;
         } catch (AuthorizationException e) {
             LOG.error("Unauthorized process definition access attempt on '{}'", processDefinitionId, e);
+            throw e;
         }
     }
 
@@ -91,9 +93,5 @@ public class AgentContextSpecRegistry {
             if (found != null) return found;
         }
         return null;
-    }
-
-    private static String key(String processDefinitionId, String elementId) {
-        return processDefinitionId + "#" + elementId;
     }
 }
