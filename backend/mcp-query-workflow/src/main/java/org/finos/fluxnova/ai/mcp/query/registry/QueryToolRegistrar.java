@@ -10,8 +10,6 @@ import org.finos.fluxnova.ai.mcp.server.registry.ToolRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -236,7 +234,6 @@ public class QueryToolRegistrar {
     /**
      * Registers a standard query tool (QueryDto + optional maxResults).
      */
-    @SuppressWarnings("unchecked")
     private <Q extends Record> void registerQueryTool(
             String toolName,
             QueryToolMethod<Q> method,
@@ -264,7 +261,7 @@ public class QueryToolRegistrar {
             return method.execute(queryDto, maxResults);
         });
 
-                if (toolRegistry.register(config)) {
+        if (toolRegistry.register(config)) {
             LOG.debug("MCP - Registered query tool: {}", toolName);
         }
     }
@@ -291,7 +288,7 @@ public class QueryToolRegistrar {
             return method.apply(paramValue);
         });
 
-                if (toolRegistry.register(config)) {
+        if (toolRegistry.register(config)) {
             LOG.debug("MCP - Registered XML tool: {}", toolName);
         }
     }
