@@ -3,7 +3,6 @@ package org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry;
 import org.finos.fluxnova.bpm.engine.AuthorizationException;
 import org.finos.fluxnova.bpm.engine.RepositoryService;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AgentToolCatalogueBuilder;
-import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentContextSpec;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolCatalogue;
 import org.finos.fluxnova.bpm.engine.shared.xml.BpmnXmlParser;
 import org.finos.fluxnova.bpm.engine.ai.agent.model.AgentConfig;
@@ -38,13 +37,13 @@ public class AgentToolCatalogueRegistry {
         this.catalogueBuilder = catalogueBuilder;
     }
 
-    public AgentToolCatalogue resolve(String processDefinitionId, String elementId) {
+    public Optional<AgentToolCatalogue> resolve(String processDefinitionId, String elementId) {
         HashMap<String, AgentToolCatalogue> cachedContextMap 
                 = cache.computeIfAbsent(processDefinitionId, keyId -> new HashMap<>());
 
         AgentToolCatalogue result = cachedContextMap.computeIfAbsent(elementId,
                 keyId -> doScan(processDefinitionId, keyId));
-        return result;
+        return Optional.ofNullable(result);
     }
 
     public void unregisterAll() {
@@ -52,7 +51,7 @@ public class AgentToolCatalogueRegistry {
     }
 
     private AgentToolCatalogue doScan(String processDefinitionId, String elementId) {
-        AgentConfig config = agentConfigRegistry.resolve(processDefinitionId, elementId);
+        Optional<AgentConfig> config = agentConfigRegistry.resolve(processDefinitionId, elementId);
         if (config.isEmpty()) {
             return null;
         }
@@ -66,7 +65,7 @@ public class AgentToolCatalogueRegistry {
             Parse parse = new BpmnXmlParser().createParse().sourceInputStream(xml).execute();
             Element root = parse.getRootElement();
 
-            String toolScopeElementId = config.toolScopeElementId();
+            String toolScopeElementId = config.get().toolScopeElementId();
             Element toolScopeElement = findElementById(root, toolScopeElementId);
             if (toolScopeElement == null) {
                 LOG.warn("Tool scope element '{}' not found in process definition '{}'", toolScopeElementId,
@@ -84,7 +83,7 @@ public class AgentToolCatalogueRegistry {
             throw e;
         } catch (AuthorizationException e) {
             LOG.error("Unauthorized process definition access attempt on '{}'", processDefinitionId, e);
-            throw e;
+            throw e;    
         }
     }
 

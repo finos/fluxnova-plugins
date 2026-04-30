@@ -95,7 +95,7 @@ public class AdHocSubProcessCatalogueBuilder implements AgentToolCatalogueBuilde
 
         Set<String> reads = new LinkedHashSet<>();
         for (Element inputParam : inputOutputElement.elementsNS(CAMUNDA_NS, "inputParameter")) {
-            collectReads(inputParam, reads);
+            walk(inputParam, reads);
         }
         return reads;
     }
@@ -122,11 +122,7 @@ public class AdHocSubProcessCatalogueBuilder implements AgentToolCatalogueBuilde
         return matcher.matches() ? Optional.of(matcher.group(1)) : Optional.empty();
     }
 
-    static void collectReads(Element node, Set<String> out) {
-        walk(node, out);
-    }
-
-    private static void walk(Element node, Set<String> out) {
+    static void walk(Element node, Set<String> out) {
         if (isFluxnovaScript(node)) return;
         if (isFluxnovaList(node)) {
             for (Element value : node.elementsNS(CAMUNDA_NS, "value")) {

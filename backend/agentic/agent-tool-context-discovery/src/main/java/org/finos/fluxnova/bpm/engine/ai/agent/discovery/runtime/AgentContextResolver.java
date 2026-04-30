@@ -36,8 +36,7 @@ public class AgentContextResolver {
         }
 
         return new ResolvedContext(
-                // Return a copy so holders of ResolvedContext can't manipulate original hashmap
-                Map.copyOf(filtered.collect(toMap(Map.Entry::getKey, Map.Entry::getValue)))
+                filtered.collect(toMap(Map.Entry::getKey, Map.Entry::getValue))
         );
     }
 }

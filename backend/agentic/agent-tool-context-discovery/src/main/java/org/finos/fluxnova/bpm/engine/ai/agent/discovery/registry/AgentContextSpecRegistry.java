@@ -37,13 +37,13 @@ public class AgentContextSpecRegistry {
         this.extractor = extractor;
     }
 
-    public AgentContextSpec resolve(String processDefinitionId, String elementId) {
+    public Optional<AgentContextSpec> resolve(String processDefinitionId, String elementId) {
         HashMap<String, AgentContextSpec> cachedContextMap 
                 = cache.computeIfAbsent(processDefinitionId, keyId -> new HashMap<>());
                 
         AgentContextSpec result = cachedContextMap.computeIfAbsent(elementId,
                 keyId -> doScan(processDefinitionId, keyId));
-        return result;
+        return Optional.ofNullable(result);
     }
 
     public void unregisterAll() {
@@ -51,7 +51,7 @@ public class AgentContextSpecRegistry {
     }
 
     private AgentContextSpec doScan(String processDefinitionId, String elementId) {
-        AgentConfig config = agentConfigRegistry.resolve(processDefinitionId, elementId);
+        Optional<AgentConfig> config = agentConfigRegistry.resolve(processDefinitionId, elementId);
         if (config.isEmpty()) {
             return null;
         }
