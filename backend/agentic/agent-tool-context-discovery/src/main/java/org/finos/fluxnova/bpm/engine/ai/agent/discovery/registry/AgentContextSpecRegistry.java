@@ -1,5 +1,6 @@
 package org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry;
 
+import org.finos.fluxnova.bpm.engine.AuthorizationException;
 import org.finos.fluxnova.bpm.engine.RepositoryService;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AgentContextSpecExtractor;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentContextSpec;
@@ -14,6 +15,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -21,7 +23,7 @@ public class AgentContextSpecRegistry {
 
     private static final Logger LOG = LoggerFactory.getLogger(AgentContextSpecRegistry.class);
 
-    private final ConcurrentHashMap<String, Optional<AgentContextSpec>> cache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, HashMap<String, AgentContextSpec>> cache = new ConcurrentHashMap<>();
 
     private final RepositoryService repositoryService;
     private final AgentConfigRegistry agentConfigRegistry;
@@ -35,28 +37,29 @@ public class AgentContextSpecRegistry {
         this.extractor = extractor;
     }
 
-    public Optional<AgentContextSpec> resolve(String processDefinitionId, String elementId) {
-        String cacheKey = key(processDefinitionId, elementId);
-        Optional<AgentContextSpec> result = cache.computeIfAbsent(cacheKey,
-                ignored -> doScan(processDefinitionId, elementId));
-        // The null result hasn't been stored, but return an empty optional until the rescan (DISCUSS)
-        return result != null ? result : Optional.empty();
+    public AgentContextSpec resolve(String processDefinitionId, String elementId) {
+        HashMap<String, AgentContextSpec> cachedContextMap 
+                = cache.computeIfAbsent(processDefinitionId, keyId -> new HashMap<>());
+                
+        AgentContextSpec result = cachedContextMap.computeIfAbsent(elementId,
+                keyId -> doScan(processDefinitionId, keyId));
+        return result;
     }
 
     public void unregisterAll() {
         cache.clear();
     }
 
-    private Optional<AgentContextSpec> doScan(String processDefinitionId, String elementId) {
-        Optional<AgentConfig> config = agentConfigRegistry.resolve(processDefinitionId, elementId);
+    private AgentContextSpec doScan(String processDefinitionId, String elementId) {
+        AgentConfig config = agentConfigRegistry.resolve(processDefinitionId, elementId);
         if (config.isEmpty()) {
-            return Optional.empty();
+            return null;
         }
 
         try (InputStream xml = repositoryService.getProcessModel(processDefinitionId)) {
             if (xml == null) {
                 LOG.warn("Process model not found for '{}'", processDefinitionId);
-                return Optional.empty();
+                return null;
             }
 
             Parse parse = new BpmnXmlParser().createParse().sourceInputStream(xml).execute();
@@ -65,17 +68,19 @@ public class AgentContextSpecRegistry {
             Element agentSubprocessElement = findElementById(root, elementId);
             if (agentSubprocessElement == null) {
                 LOG.warn("Ad-hoc subprocess element '{}' not found in process definition '{}'", elementId, processDefinitionId);
-                return Optional.empty();
+                return null;
             }
 
             AgentContextSpec spec = extractor.extract(agentSubprocessElement, processDefinitionId);
-            return Optional.of(spec);
+            return spec;
         } catch (IOException e) {
             LOG.error("Failed to scan process definition '{}' for context spec", processDefinitionId, e);
             return null; // transient failure — don't cache, retry next time
         } catch (NotFoundException e) {
             LOG.error("Process definition '{}' not found", processDefinitionId, e);
             throw e;
+        } catch (AuthorizationException e) {
+            LOG.error("Unauthorized process definition access attempt on '{}'", processDefinitionId, e);
         }
     }
 

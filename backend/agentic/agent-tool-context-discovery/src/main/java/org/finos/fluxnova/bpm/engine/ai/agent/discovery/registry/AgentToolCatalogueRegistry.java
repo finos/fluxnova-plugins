@@ -2,6 +2,7 @@ package org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry;
 
 import org.finos.fluxnova.bpm.engine.RepositoryService;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AgentToolCatalogueBuilder;
+import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentContextSpec;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolCatalogue;
 import org.finos.fluxnova.bpm.engine.shared.xml.BpmnXmlParser;
 import org.finos.fluxnova.bpm.engine.ai.agent.model.AgentConfig;
@@ -14,6 +15,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -21,7 +23,7 @@ public class AgentToolCatalogueRegistry {
 
     private static final Logger LOG = LoggerFactory.getLogger(AgentToolCatalogueRegistry.class);
 
-    private final ConcurrentHashMap<String, Optional<AgentToolCatalogue>> cache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, HashMap<String, AgentToolCatalogue>> cache = new ConcurrentHashMap<>();
 
     private final RepositoryService repositoryService;
     private final AgentConfigRegistry agentConfigRegistry;
@@ -35,28 +37,29 @@ public class AgentToolCatalogueRegistry {
         this.catalogueBuilder = catalogueBuilder;
     }
 
-    public Optional<AgentToolCatalogue> resolve(String processDefinitionId, String elementId) {
-        String cacheKey = key(processDefinitionId, elementId);
-        Optional<AgentToolCatalogue> result = cache.computeIfAbsent(cacheKey,
-                ignored -> doScan(processDefinitionId, elementId));
-        // The null result hasn't been stored, but return an empty optional until the rescan (DISCUSS)
-        return result != null ? result : Optional.empty();
+    public AgentToolCatalogue resolve(String processDefinitionId, String elementId) {
+        HashMap<String, AgentToolCatalogue> cachedContextMap 
+                = cache.computeIfAbsent(processDefinitionId, keyId -> new HashMap<>());
+
+        AgentToolCatalogue result = cachedContextMap.computeIfAbsent(elementId,
+                keyId -> doScan(processDefinitionId, keyId));
+        return result;
     }
 
     public void unregisterAll() {
         cache.clear();
     }
 
-    private Optional<AgentToolCatalogue> doScan(String processDefinitionId, String elementId) {
-        Optional<AgentConfig> config = agentConfigRegistry.resolve(processDefinitionId, elementId);
+    private AgentToolCatalogue doScan(String processDefinitionId, String elementId) {
+        AgentConfig config = agentConfigRegistry.resolve(processDefinitionId, elementId);
         if (config.isEmpty()) {
-            return Optional.empty();
+            return null;
         }
 
         try (InputStream xml = repositoryService.getProcessModel(processDefinitionId)) {
             if (xml == null) {
                 LOG.warn("Process model not found for '{}'", processDefinitionId);
-                return Optional.empty();
+                return null;
             }
 
             Parse parse = new BpmnXmlParser().createParse().sourceInputStream(xml).execute();
@@ -67,11 +70,11 @@ public class AgentToolCatalogueRegistry {
             if (toolScopeElement == null) {
                 LOG.warn("Tool scope element '{}' not found in process definition '{}'", toolScopeElementId,
                         processDefinitionId);
-                return Optional.empty();
+                return null;
             }
 
             AgentToolCatalogue catalogue = catalogueBuilder.build(toolScopeElement, processDefinitionId);
-            return Optional.of(catalogue);
+            return null;
         } catch (IOException e) {
             LOG.error("Failed to scan process definition '{}' for tool catalogue", processDefinitionId, e);
             return null; // transient failure — don't cache, retry next time
@@ -88,9 +91,5 @@ public class AgentToolCatalogueRegistry {
             if (found != null) return found;
         }
         return null;
-    }
-
-    private static String key(String processDefinitionId, String elementId) {
-        return processDefinitionId + "#" + elementId;
     }
 }
