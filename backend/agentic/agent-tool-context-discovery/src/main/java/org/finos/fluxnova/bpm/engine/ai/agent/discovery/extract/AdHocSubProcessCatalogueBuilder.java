@@ -10,6 +10,7 @@ import org.finos.fluxnova.bpm.engine.impl.util.xml.Namespace;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class AdHocSubProcessCatalogueBuilder implements AgentToolCatalogueBuilder {
 
@@ -34,26 +35,16 @@ public class AdHocSubProcessCatalogueBuilder implements AgentToolCatalogueBuilde
 
     @Override
     public AgentToolCatalogue build(Element scopeElement, String processDefinitionId) {
-        List<AgentToolEntry> tools = new ArrayList<>();
-        List<String> errors = new ArrayList<>();
         Set<String> sequenceFlowTargets = collectSequenceFlowTargets(scopeElement);
 
-        for (Element child : scopeElement.elements()) {
-            if (!isActivityElement(child)) continue;
-            String id = child.attribute("id");
-            if (id == null || id.isBlank()) {
-                errors.add("Activity element with missing id in scope '" + scopeElement.attribute("id") + "'");
-                continue;
-            }
-            if (sequenceFlowTargets.contains(id)) continue;
+        List<Element> activityElements = scopeElement.elements().stream()
+                .filter(this::isActivityElement)
+                .toList();
 
-            String name = child.attribute("name");
-            String description = extractDocumentation(child);
-            Set<String> reads = extractReads(child);
-            Set<String> writes = extractWrites(child);
-
-            tools.add(new AgentToolEntry(id, name, description, reads, writes));
-        }
+        List<String> errors = activityElements.stream()
+                .filter(child -> child.attribute("id") == null || child.attribute("id").isBlank())
+                .map(child -> "Activity element with missing id in scope '" + scopeElement.attribute("id") + "'")
+                .toList();
 
         if (!errors.isEmpty()) {
             throw new ProcessEngineException(
@@ -61,6 +52,16 @@ public class AdHocSubProcessCatalogueBuilder implements AgentToolCatalogueBuilde
                             + "' for process definition '" + processDefinitionId + "': "
                             + String.join("; ", errors));
         }
+
+        List<AgentToolEntry> tools = activityElements.stream()
+                .filter(child -> !sequenceFlowTargets.contains(child.attribute("id")))
+                .map(child -> new AgentToolEntry(
+                        child.attribute("id"),
+                        child.attribute("name"),
+                        extractDocumentation(child),
+                        extractReads(child),
+                        extractWrites(child)))
+                .toList();
 
         return new AgentToolCatalogue(processDefinitionId, scopeElement.attribute("id"), tools);
     }
@@ -93,11 +94,9 @@ public class AdHocSubProcessCatalogueBuilder implements AgentToolCatalogueBuilde
         Element inputOutputElement = extensionElements.elementNS(CAMUNDA_NS, "inputOutput");
         if (inputOutputElement == null) return Set.of();
 
-        Set<String> reads = new LinkedHashSet<>();
-        for (Element inputParam : inputOutputElement.elementsNS(CAMUNDA_NS, "inputParameter")) {
-            walk(inputParam, reads);
-        }
-        return reads;
+        return inputOutputElement.elementsNS(CAMUNDA_NS, "inputParameter").stream()
+                .flatMap(inputParam -> walk(inputParam).stream())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     private Set<String> extractWrites(Element element) {
@@ -122,28 +121,23 @@ public class AdHocSubProcessCatalogueBuilder implements AgentToolCatalogueBuilde
         return matcher.matches() ? Optional.of(matcher.group(1)) : Optional.empty();
     }
 
-    static void walk(Element node, Set<String> out) {
-        if (isFluxnovaScript(node)) return;
+    static Set<String> walk(Element node) {
+        if (isFluxnovaScript(node)) return Set.of();
         if (isFluxnovaList(node)) {
-            for (Element value : node.elementsNS(CAMUNDA_NS, "value")) {
-                walk(value, out);
-            }
-            return;
+            return node.elementsNS(CAMUNDA_NS, "value").stream()
+                    .flatMap(value -> walk(value).stream())
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
         }
         if (isFluxnovaMap(node)) {
-            for (Element entry : node.elementsNS(CAMUNDA_NS, "entry")) {
-                walk(entry, out);
-            }
-            return;
+            return node.elementsNS(CAMUNDA_NS, "entry").stream()
+                    .flatMap(entry -> walk(entry).stream())
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
         }
-        // Check for composite children (list, map, script) before falling through to text
-        for (Element child : node.elements()) {
-            if (isFluxnovaList(child) || isFluxnovaMap(child) || isFluxnovaScript(child)) {
-                walk(child, out);
-                return;
-            }
-        }
-        scopeReadFor(node.getText()).ifPresent(out::add);
+        return node.elements().stream()
+                .filter(child -> isFluxnovaList(child) || isFluxnovaMap(child) || isFluxnovaScript(child))
+                .findFirst()
+                .map(AdHocSubProcessCatalogueBuilder::walk)
+                .orElseGet(() -> scopeReadFor(node.getText()).map(Set::of).orElse(Set.of()));
     }
 
     private static boolean isFluxnovaScript(Element node) {
