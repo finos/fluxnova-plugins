@@ -5,7 +5,6 @@ import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.ContextVariableDec
 import org.finos.fluxnova.bpm.engine.impl.util.xml.Element;
 import org.finos.fluxnova.bpm.engine.shared.agent.AgentModelConstants;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -28,13 +27,12 @@ public class BpmnExtensionContextSpecBuilder implements AgentContextSpecBuilder 
             return new AgentContextSpec(processDefinitionId, elementId, List.of());
         }
 
-        List<ContextVariableDeclaration> variableDeclarations = new ArrayList<>();
-        for (Element variable : contextElement.elementsNS(AgentModelConstants.AGENT_NS, "variable")) {
-            String name = variable.attribute("name");
-            if (name != null && !name.isBlank()) {
-                variableDeclarations.add(new ContextVariableDeclaration(name));
-            }
-        }
+        List<ContextVariableDeclaration> variableDeclarations = contextElement
+                .elementsNS(AgentModelConstants.AGENT_NS, "variable").stream()
+                .map(v -> v.attribute("name"))
+                .filter(name -> name != null && !name.isBlank())
+                .map(ContextVariableDeclaration::new)
+                .toList();
 
         return new AgentContextSpec(processDefinitionId, elementId, variableDeclarations);
     }

@@ -7,7 +7,6 @@ import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.ResolvedContext;
 
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
@@ -25,18 +24,15 @@ public class AgentContextResolver {
     public ResolvedContext resolve(String executionId, AgentContextSpec spec) {
         Map<String, Object> processVariables = runtimeService.getVariables(executionId);
 
-        Stream<Map.Entry<String, Object>> filtered = processVariables.entrySet().stream()
-                .filter(e -> !e.getKey().startsWith(AGENT_VAR_PREFIX));
+        Set<String> declared = spec.declaredVariables().stream()
+                .map(ContextVariableDeclaration::name)
+                .collect(toSet());
 
-        if (!spec.declaredVariables().isEmpty()) {
-            Set<String> declared = spec.declaredVariables().stream()
-                    .map(ContextVariableDeclaration::name)
-                    .collect(toSet());
-            filtered = filtered.filter(e -> declared.contains(e.getKey()));
-        }
+        Map<String, Object> filtered = processVariables.entrySet().stream()
+                .filter(e -> !e.getKey().startsWith(AGENT_VAR_PREFIX)
+                        && (declared.isEmpty() || declared.contains(e.getKey())))
+                .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-        return new ResolvedContext(
-                filtered.collect(toMap(Map.Entry::getKey, Map.Entry::getValue))
-        );
+        return new ResolvedContext(filtered);
     }
 }
