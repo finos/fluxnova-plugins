@@ -4,3 +4,17 @@
 .env.development.local
 .env.test.local
 .env.production.local
+
+.idea
+target
+.classpath
+.project
+.settings
+*.iml
+*.sublime-project
+*.sublime-workspace
+*.h2.db
+*.lock.db
+**/node_modules
+**/target
+*.DS_Store
