@@ -13,6 +13,8 @@ import org.finos.fluxnova.bpm.engine.ai.agent.discovery.runtime.AgentContextReso
 import org.finos.fluxnova.bpm.engine.ai.agent.extract.AgentConfigExtractor;
 import org.finos.fluxnova.bpm.engine.ai.agent.registry.AgentConfigRegistry;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -22,13 +24,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 
 class AgentDiscoveryAutoConfigurationTest {
-
-    private AnnotationConfigApplicationContext context;
-
-    @AfterEach
-    void tearDown() {
-        if (context != null) context.close();
-    }
 
     @Configuration
     static class MockInfrastructure {
@@ -40,36 +35,8 @@ class AgentDiscoveryAutoConfigurationTest {
         }
     }
 
-    @Test
-    void contextLoads_allBeansPresent() {
-        context = new AnnotationConfigApplicationContext(MockInfrastructure.class, AgentDiscoveryAutoConfiguration.class);
-
-        assertNotNull(context.getBean(AgentToolCatalogueBuilder.class));
-        assertNotNull(context.getBean(AgentContextSpecBuilder.class));
-        assertNotNull(context.getBean(AgentToolCatalogueRegistry.class));
-        assertNotNull(context.getBean(AgentContextSpecRegistry.class));
-        assertNotNull(context.getBean(AgentContextResolver.class));
-        assertNotNull(context.getBean(AgentDiscoveryUndeployListener.class));
-    }
-
-    @Test
-    void defaultCatalogueBuilder_isAdHocSubProcessImpl() {
-        context = new AnnotationConfigApplicationContext(MockInfrastructure.class, AgentDiscoveryAutoConfiguration.class);
-
-        AgentToolCatalogueBuilder builder = context.getBean(AgentToolCatalogueBuilder.class);
-        assertInstanceOf(AdHocSubProcessCatalogueBuilder.class, builder);
-    }
-
-    @Test
-    void defaultContextSpecExtractor_isBpmnExtensionImpl() {
-        context = new AnnotationConfigApplicationContext(MockInfrastructure.class, AgentDiscoveryAutoConfiguration.class);
-
-        AgentContextSpecBuilder extractor = context.getBean(AgentContextSpecBuilder.class);
-        assertInstanceOf(BpmnExtensionContextSpecBuilder.class, extractor);
-    }
-
     @Configuration
-    static class CustomBuilderOverride {
+    static class CustomCatalogueBuilderOverride {
         @Bean RepositoryService repositoryService() { return mock(RepositoryService.class); }
         @Bean RuntimeService runtimeService() { return mock(RuntimeService.class); }
         @Bean AgentConfigExtractor agentConfigExtractor() { return new AgentConfigExtractor(); }
@@ -81,11 +48,88 @@ class AgentDiscoveryAutoConfigurationTest {
         }
     }
 
-    @Test
-    void conditionalOnMissingBean_allowsConsumerToOverrideCatalogueBuilder() {
-        context = new AnnotationConfigApplicationContext(CustomBuilderOverride.class, AgentDiscoveryAutoConfiguration.class);
+    @Configuration
+    static class CustomContextSpecBuilderOverride {
+        @Bean RepositoryService repositoryService() { return mock(RepositoryService.class); }
+        @Bean RuntimeService runtimeService() { return mock(RuntimeService.class); }
+        @Bean AgentConfigExtractor agentConfigExtractor() { return new AgentConfigExtractor(); }
+        @Bean AgentConfigRegistry agentConfigRegistry(RepositoryService rs, AgentConfigExtractor ext) {
+            return new AgentConfigRegistry(rs, ext);
+        }
+        @Bean AgentContextSpecBuilder agentContextSpecExtractor() {
+            return mock(AgentContextSpecBuilder.class);
+        }
+    }
 
-        AgentToolCatalogueBuilder builder = context.getBean(AgentToolCatalogueBuilder.class);
-        assertFalse(builder instanceof AdHocSubProcessCatalogueBuilder);
+    // ---------- Default beans ----------
+
+    @Nested
+    class DefaultBeans {
+
+        private AnnotationConfigApplicationContext context;
+
+        @BeforeEach
+        void setUp() {
+            context = new AnnotationConfigApplicationContext(
+                    MockInfrastructure.class, AgentDiscoveryAutoConfiguration.class);
+        }
+
+        @AfterEach
+        void tearDown() {
+            context.close();
+        }
+
+        @Test
+        void allExpectedBeansArePresent() {
+            assertNotNull(context.getBean(AgentToolCatalogueBuilder.class));
+            assertNotNull(context.getBean(AgentContextSpecBuilder.class));
+            assertNotNull(context.getBean(AgentToolCatalogueRegistry.class));
+            assertNotNull(context.getBean(AgentContextSpecRegistry.class));
+            assertNotNull(context.getBean(AgentContextResolver.class));
+            assertNotNull(context.getBean(AgentDiscoveryUndeployListener.class));
+        }
+
+        @Test
+        void catalogueBuilder_isAdHocSubProcessImpl() {
+            assertInstanceOf(AdHocSubProcessCatalogueBuilder.class,
+                    context.getBean(AgentToolCatalogueBuilder.class));
+        }
+
+        @Test
+        void contextSpecBuilder_isBpmnExtensionImpl() {
+            assertInstanceOf(BpmnExtensionContextSpecBuilder.class,
+                    context.getBean(AgentContextSpecBuilder.class));
+        }
+    }
+
+    // ---------- @ConditionalOnMissingBean overrides ----------
+
+    @Nested
+    class ConditionalOnMissingBean {
+
+        private AnnotationConfigApplicationContext context;
+
+        @AfterEach
+        void tearDown() {
+            if (context != null) context.close();
+        }
+
+        @Test
+        void userProvidedCatalogueBuilder_takesPreference() {
+            context = new AnnotationConfigApplicationContext(
+                    CustomCatalogueBuilderOverride.class, AgentDiscoveryAutoConfiguration.class);
+
+            assertFalse(context.getBean(AgentToolCatalogueBuilder.class)
+                    instanceof AdHocSubProcessCatalogueBuilder);
+        }
+
+        @Test
+        void userProvidedContextSpecBuilder_takesPreference() {
+            context = new AnnotationConfigApplicationContext(
+                    CustomContextSpecBuilderOverride.class, AgentDiscoveryAutoConfiguration.class);
+
+            assertFalse(context.getBean(AgentContextSpecBuilder.class)
+                    instanceof BpmnExtensionContextSpecBuilder);
+        }
     }
 }

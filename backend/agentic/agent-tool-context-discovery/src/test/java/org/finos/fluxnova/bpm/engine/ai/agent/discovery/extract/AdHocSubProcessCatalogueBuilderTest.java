@@ -1003,4 +1003,197 @@ class AdHocSubProcessCatalogueBuilderTest {
       assertTrue(catalogue.tools().get(0).writes().isEmpty());
     }
   }
+
+  // ---------- walk (direct unit tests) ----------
+
+  @Nested
+  class Walk {
+
+    private static final String CAMUNDA_NS_URI = "http://camunda.org/schema/1.0/bpmn";
+
+    // --- plain inputParameter node ---
+
+    @Test
+    void walk_simpleElExpression_addsVariableToOut() {
+      Element node = new Element(null, null, "inputParameter", null, null);
+      node.appendText("${customerId}");
+
+      Set<String> result = AdHocSubProcessCatalogueBuilder.walk(node);
+
+      assertFalse(result.isEmpty());
+      assertEquals(Set.of("customerId"), result);
+    }
+
+    @Test
+    void walk_noText_returnsEmpty() {
+      Element node = new Element(null, null, "inputParameter", null, null);
+
+      assertTrue(AdHocSubProcessCatalogueBuilder.walk(node).isEmpty());
+    }
+
+    @Test
+    void walk_dottedPath_returnsRootIdentifier() {
+      Element node = new Element(null, null, "inputParameter", null, null);
+      node.appendText("${customer.profile.email}");
+
+      assertEquals(Set.of("customer"), AdHocSubProcessCatalogueBuilder.walk(node));
+    }
+
+    @Test
+    void walk_complexElText_returnsEmpty() {
+      Element node = new Element(null, null, "inputParameter", null, null);
+      node.appendText("${a + b}");
+
+      assertTrue(AdHocSubProcessCatalogueBuilder.walk(node).isEmpty());
+    }
+
+    @Test
+    void walk_literalText_returnsEmpty() {
+      Element node = new Element(null, null, "inputParameter", null, null);
+      node.appendText("manual");
+
+      assertTrue(AdHocSubProcessCatalogueBuilder.walk(node).isEmpty());
+    }
+
+    // --- camunda:script node ---
+
+    @Test
+    void walk_camundaScriptNode_returnsEmpty() {
+      Element script = new Element(CAMUNDA_NS_URI, "script", null, null, null);
+      script.appendText("someVar + 1");
+
+      assertTrue(AdHocSubProcessCatalogueBuilder.walk(script).isEmpty());
+    }
+
+    // --- camunda:list node ---
+
+    @Test
+    void walk_emptyList_returnsEmpty() {
+      Element list = new Element(CAMUNDA_NS_URI, "list", null, null, null);
+
+      assertTrue(AdHocSubProcessCatalogueBuilder.walk(list).isEmpty());
+    }
+
+    @Test
+    void walk_camundaListNode_extractsFromValues() {
+      Element list = new Element(CAMUNDA_NS_URI, "list", null, null, null);
+      Element v1 = new Element(CAMUNDA_NS_URI, "value", null, null, null);
+      v1.appendText("${alpha}");
+      Element v2 = new Element(CAMUNDA_NS_URI, "value", null, null, null);
+      v2.appendText("${beta}");
+      list.add(v1);
+      list.add(v2);
+
+      assertEquals(Set.of("alpha", "beta"), AdHocSubProcessCatalogueBuilder.walk(list));
+    }
+
+    @Test
+    void walk_camundaListWithMixedValues_extractsOnlyElVars() {
+      Element list = new Element(CAMUNDA_NS_URI, "list", null, null, null);
+      Element v1 = new Element(CAMUNDA_NS_URI, "value", null, null, null);
+      v1.appendText("${userId}");
+      Element v2 = new Element(CAMUNDA_NS_URI, "value", null, null, null);
+      v2.appendText("literal-value");
+      Element v3 = new Element(CAMUNDA_NS_URI, "value", null, null, null);
+      v3.appendText("${roleId}");
+      list.add(v1);
+      list.add(v2);
+      list.add(v3);
+
+      assertEquals(Set.of("userId", "roleId"), AdHocSubProcessCatalogueBuilder.walk(list));
+    }
+
+    @Test
+    void walk_camundaListWithComplexElValue_returnsEmpty() {
+      Element list = new Element(CAMUNDA_NS_URI, "list", null, null, null);
+      Element value = new Element(CAMUNDA_NS_URI, "value", null, null, null);
+      value.appendText("${a + b}");
+      list.add(value);
+
+      assertTrue(AdHocSubProcessCatalogueBuilder.walk(list).isEmpty());
+    }
+
+    // --- camunda:map node ---
+
+    @Test
+    void walk_emptyMap_returnsEmpty() {
+      Element map = new Element(CAMUNDA_NS_URI, "map", null, null, null);
+
+      assertTrue(AdHocSubProcessCatalogueBuilder.walk(map).isEmpty());
+    }
+
+    @Test
+    void walk_camundaMapNode_extractsFromEntries() {
+      Element map = new Element(CAMUNDA_NS_URI, "map", null, null, null);
+      Element e1 = new Element(CAMUNDA_NS_URI, "entry", null, null, null);
+      e1.appendText("${orderId}");
+      Element e2 = new Element(CAMUNDA_NS_URI, "entry", null, null, null);
+      e2.appendText("${customerId}");
+      map.add(e1);
+      map.add(e2);
+
+      assertEquals(Set.of("orderId", "customerId"), AdHocSubProcessCatalogueBuilder.walk(map));
+    }
+
+    @Test
+    void walk_camundaMapWithLiteralEntries_returnsEmpty() {
+      Element map = new Element(CAMUNDA_NS_URI, "map", null, null, null);
+      Element entry = new Element(CAMUNDA_NS_URI, "entry", null, null, null);
+      entry.appendText("static-value");
+      map.add(entry);
+
+      assertTrue(AdHocSubProcessCatalogueBuilder.walk(map).isEmpty());
+    }
+
+    // --- node with Camunda composite child ---
+
+    @Test
+    void walk_nodeWithCamundaScriptChild_returnsEmpty() {
+      Element node = new Element(null, null, "inputParameter", null, null);
+      Element script = new Element(CAMUNDA_NS_URI, "script", null, null, null);
+      script.appendText("someVar + 1");
+      node.add(script);
+
+      assertTrue(AdHocSubProcessCatalogueBuilder.walk(node).isEmpty());
+    }
+
+    @Test
+    void walk_nodeWithCamundaListChild_delegatesToList() {
+      Element node = new Element(null, null, "inputParameter", null, null);
+      Element list = new Element(CAMUNDA_NS_URI, "list", null, null, null);
+      Element value = new Element(CAMUNDA_NS_URI, "value", null, null, null);
+      value.appendText("${invoiceId}");
+      list.add(value);
+      node.add(list);
+
+      assertEquals(Set.of("invoiceId"), AdHocSubProcessCatalogueBuilder.walk(node));
+    }
+
+    @Test
+    void walk_nodeWithCamundaMapChild_delegatesToMap() {
+      Element node = new Element(null, null, "inputParameter", null, null);
+      Element map = new Element(CAMUNDA_NS_URI, "map", null, null, null);
+      Element entry = new Element(CAMUNDA_NS_URI, "entry", null, null, null);
+      entry.appendText("${accountId}");
+      map.add(entry);
+      node.add(map);
+
+      assertEquals(Set.of("accountId"), AdHocSubProcessCatalogueBuilder.walk(node));
+    }
+
+    @Test
+    void walk_nodeWithCamundaScriptChildBeforeCamundaList_returnsEmpty() {
+      // findFirst() returns the script node, so the list is never reached
+      Element node = new Element(null, null, "inputParameter", null, null);
+      Element script = new Element(CAMUNDA_NS_URI, "script", null, null, null);
+      Element list = new Element(CAMUNDA_NS_URI, "list", null, null, null);
+      Element value = new Element(CAMUNDA_NS_URI, "value", null, null, null);
+      value.appendText("${ignored}");
+      list.add(value);
+      node.add(script);
+      node.add(list);
+
+      assertTrue(AdHocSubProcessCatalogueBuilder.walk(node).isEmpty());
+    }
+  }
 }

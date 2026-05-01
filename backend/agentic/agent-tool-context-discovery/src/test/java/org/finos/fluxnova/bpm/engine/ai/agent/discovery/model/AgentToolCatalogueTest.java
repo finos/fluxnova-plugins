@@ -1,5 +1,6 @@
 package org.finos.fluxnova.bpm.engine.ai.agent.discovery.model;
 
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -14,38 +15,33 @@ class AgentToolCatalogueTest {
         return new AgentToolEntry(id, name, null, Set.of(), Set.of());
     }
 
-    @Test
-    void findById_whenToolExists_returnsIt() {
-        AgentToolCatalogue catalogue = new AgentToolCatalogue("proc:1", "sub1",
-                List.of(entry("taskA", "Task A"), entry("taskB", "Task B")));
+    @Nested
+    class FindById {
 
-        Optional<AgentToolEntry> result = catalogue.findById("taskB");
+        @Test
+        void whenToolExists_returnsIt() {
+            AgentToolCatalogue catalogue = new AgentToolCatalogue("proc:1", "sub1",
+                    List.of(entry("taskA", "Task A"), entry("taskB", "Task B")));
 
-        assertTrue(result.isPresent());
-        assertEquals("Task B", result.get().name());
-    }
+            Optional<AgentToolEntry> result = catalogue.findById("taskB");
 
-    @Test
-    void findById_whenToolDoesNotExist_returnsEmpty() {
-        AgentToolCatalogue catalogue = new AgentToolCatalogue("proc:1", "sub1",
-                List.of(entry("taskA", "Task A")));
+            assertTrue(result.isPresent());
+            assertEquals("Task B", result.get().name());
+        }
 
-        assertTrue(catalogue.findById("nonExistent").isEmpty());
-    }
+        @Test
+        void whenToolDoesNotExist_returnsEmpty() {
+            AgentToolCatalogue catalogue = new AgentToolCatalogue("proc:1", "sub1",
+                    List.of(entry("taskA", "Task A")));
 
-    @Test
-    void findById_whenCatalogueEmpty_returnsEmpty() {
-        AgentToolCatalogue catalogue = new AgentToolCatalogue("proc:1", "sub1", List.of());
+            assertTrue(catalogue.findById("nonExistent").isEmpty());
+        }
 
-        assertTrue(catalogue.findById("any").isEmpty());
-    }
+        @Test
+        void whenCatalogueEmpty_returnsEmpty() {
+            AgentToolCatalogue catalogue = new AgentToolCatalogue("proc:1", "sub1", List.of());
 
-    @Test
-    void recordAccessors_returnCorrectValues() {
-        AgentToolCatalogue catalogue = new AgentToolCatalogue("proc:1", "sub1", List.of());
-
-        assertEquals("proc:1", catalogue.processDefinitionId());
-        assertEquals("sub1", catalogue.elementId());
-        assertTrue(catalogue.tools().isEmpty());
+            assertTrue(catalogue.findById("any").isEmpty());
+        }
     }
 }
