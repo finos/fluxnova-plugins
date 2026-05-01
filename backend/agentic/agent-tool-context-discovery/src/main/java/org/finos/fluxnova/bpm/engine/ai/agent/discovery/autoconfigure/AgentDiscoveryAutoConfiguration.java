@@ -4,9 +4,9 @@ import org.finos.fluxnova.bpm.engine.RepositoryService;
 import org.finos.fluxnova.bpm.engine.RuntimeService;
 import org.finos.fluxnova.bpm.engine.ai.agent.autoconfigure.AgentConfigAutoConfiguration;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AdHocSubProcessCatalogueBuilder;
-import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AgentContextSpecExtractor;
+import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AgentContextSpecBuilder;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AgentToolCatalogueBuilder;
-import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.BpmnExtensionContextSpecExtractor;
+import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.BpmnExtensionContextSpecBuilder;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.lifecycle.AgentDiscoveryUndeployListener;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry.AgentContextSpecRegistry;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry.AgentToolCatalogueRegistry;
@@ -29,8 +29,8 @@ public class AgentDiscoveryAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public AgentContextSpecExtractor agentContextSpecExtractor() {
-        return new BpmnExtensionContextSpecExtractor();
+    public AgentContextSpecBuilder agentContextSpecExtractor() {
+        return new BpmnExtensionContextSpecBuilder();
     }
 
     @Bean
@@ -45,7 +45,7 @@ public class AgentDiscoveryAutoConfiguration {
     @ConditionalOnMissingBean
     public AgentContextSpecRegistry agentContextSpecRegistry(RepositoryService repositoryService,
                                                               AgentConfigRegistry agentConfigRegistry,
-                                                              AgentContextSpecExtractor extractor) {
+                                                              AgentContextSpecBuilder extractor) {
         return new AgentContextSpecRegistry(repositoryService, agentConfigRegistry, extractor);
     }
 

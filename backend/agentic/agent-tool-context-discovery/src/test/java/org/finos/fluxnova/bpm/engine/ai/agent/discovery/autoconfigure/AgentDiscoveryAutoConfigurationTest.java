@@ -3,9 +3,9 @@ package org.finos.fluxnova.bpm.engine.ai.agent.discovery.autoconfigure;
 import org.finos.fluxnova.bpm.engine.RepositoryService;
 import org.finos.fluxnova.bpm.engine.RuntimeService;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AdHocSubProcessCatalogueBuilder;
-import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AgentContextSpecExtractor;
+import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AgentContextSpecBuilder;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AgentToolCatalogueBuilder;
-import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.BpmnExtensionContextSpecExtractor;
+import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.BpmnExtensionContextSpecBuilder;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.lifecycle.AgentDiscoveryUndeployListener;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry.AgentContextSpecRegistry;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry.AgentToolCatalogueRegistry;
@@ -45,7 +45,7 @@ class AgentDiscoveryAutoConfigurationTest {
         context = new AnnotationConfigApplicationContext(MockInfrastructure.class, AgentDiscoveryAutoConfiguration.class);
 
         assertNotNull(context.getBean(AgentToolCatalogueBuilder.class));
-        assertNotNull(context.getBean(AgentContextSpecExtractor.class));
+        assertNotNull(context.getBean(AgentContextSpecBuilder.class));
         assertNotNull(context.getBean(AgentToolCatalogueRegistry.class));
         assertNotNull(context.getBean(AgentContextSpecRegistry.class));
         assertNotNull(context.getBean(AgentContextResolver.class));
@@ -64,8 +64,8 @@ class AgentDiscoveryAutoConfigurationTest {
     void defaultContextSpecExtractor_isBpmnExtensionImpl() {
         context = new AnnotationConfigApplicationContext(MockInfrastructure.class, AgentDiscoveryAutoConfiguration.class);
 
-        AgentContextSpecExtractor extractor = context.getBean(AgentContextSpecExtractor.class);
-        assertInstanceOf(BpmnExtensionContextSpecExtractor.class, extractor);
+        AgentContextSpecBuilder extractor = context.getBean(AgentContextSpecBuilder.class);
+        assertInstanceOf(BpmnExtensionContextSpecBuilder.class, extractor);
     }
 
     @Configuration

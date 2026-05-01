@@ -12,10 +12,10 @@ import java.util.List;
  * Extracts an {@link AgentContextSpec} from a BPMN element's {@code <extensionElements>},
  * reading declared context variables from an {@code <agent:context>} block.
  */
-public class BpmnExtensionContextSpecExtractor implements AgentContextSpecExtractor {
+public class BpmnExtensionContextSpecBuilder implements AgentContextSpecBuilder {
 
     @Override
-    public AgentContextSpec extract(Element element, String processDefinitionId) {
+    public AgentContextSpec build(Element element, String processDefinitionId) {
         String elementId = element.attribute("id");
         Element extensionElements = element.element("extensionElements");
         if (extensionElements == null) {
