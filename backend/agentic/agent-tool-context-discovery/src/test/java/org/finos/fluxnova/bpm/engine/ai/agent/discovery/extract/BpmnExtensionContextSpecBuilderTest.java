@@ -27,8 +27,6 @@ class BpmnExtensionContextSpecBuilderTest {
                 .element("adHocSubProcess");
     }
 
-    // ---------- Catalogue metadata ----------
-
     @Nested
     class CatalogueMetadata {
 
@@ -49,8 +47,6 @@ class BpmnExtensionContextSpecBuilderTest {
             assertEquals("agent1", spec.elementId());
         }
     }
-
-    // ---------- Declared variables ----------
 
     @Nested
     class DeclaredVariables {

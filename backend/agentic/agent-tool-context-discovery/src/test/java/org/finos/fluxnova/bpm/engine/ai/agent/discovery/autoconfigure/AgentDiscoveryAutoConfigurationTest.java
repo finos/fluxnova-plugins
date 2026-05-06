@@ -61,8 +61,6 @@ class AgentDiscoveryAutoConfigurationTest {
         }
     }
 
-    // ---------- Default beans ----------
-
     @Nested
     class DefaultBeans {
 
@@ -101,8 +99,6 @@ class AgentDiscoveryAutoConfigurationTest {
                     context.getBean(AgentContextSpecBuilder.class));
         }
     }
-
-    // ---------- @ConditionalOnMissingBean overrides ----------
 
     @Nested
     class ConditionalOnMissingBean {

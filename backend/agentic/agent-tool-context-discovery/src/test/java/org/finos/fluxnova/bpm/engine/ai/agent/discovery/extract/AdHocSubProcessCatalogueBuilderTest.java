@@ -36,8 +36,6 @@ class AdHocSubProcessCatalogueBuilderTest {
               .element("adHocSubProcess");
   }
 
-  // ---------- Tool eligibility ----------
-
   @Nested
   class ToolEligibility {
 
@@ -191,8 +189,6 @@ class AdHocSubProcessCatalogueBuilderTest {
       }
   }
 
-  // ---------- Tool metadata ----------
-
   @Nested
   class ToolMetadata {
 
@@ -310,8 +306,6 @@ class AdHocSubProcessCatalogueBuilderTest {
           assertEquals("Some description", catalogue.tools().get(0).description());
       }
   }
-
-  // ---------- Reads (inputParameter expression parsing) ----------
 
   @Nested
   class ReadsExtraction {
@@ -713,8 +707,6 @@ class AdHocSubProcessCatalogueBuilderTest {
       }
   }
 
-  // ---------- Writes (outputParameter) ----------
-
   @Nested
   class WritesExtraction {
 
@@ -814,8 +806,6 @@ class AdHocSubProcessCatalogueBuilderTest {
       }
   }
 
-  // ---------- Catalogue metadata ----------
-
   @Nested
   class CatalogueMetadata {
 
@@ -838,8 +828,6 @@ class AdHocSubProcessCatalogueBuilderTest {
           assertEquals("agent1", catalogue.elementId());
       }
   }
-
-  // ---------- scopeReadFor static method ----------
 
   @Nested
   class ScopeReadFor {
@@ -898,8 +886,6 @@ class AdHocSubProcessCatalogueBuilderTest {
                   AdHocSubProcessCatalogueBuilder.scopeReadFor("${_myVar}"));
       }
   }
-
-  // ---------- Invalid / Edge Cases ----------
 
   @Nested
   class InvalidAndEdgeCases {
@@ -1003,8 +989,6 @@ class AdHocSubProcessCatalogueBuilderTest {
       assertTrue(catalogue.tools().get(0).writes().isEmpty());
     }
   }
-
-  // ---------- walk (direct unit tests) ----------
 
   @Nested
   class Walk {

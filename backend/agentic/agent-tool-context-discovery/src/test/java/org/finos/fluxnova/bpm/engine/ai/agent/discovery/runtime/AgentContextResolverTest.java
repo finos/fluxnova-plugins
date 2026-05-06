@@ -45,8 +45,6 @@ class AgentContextResolverTest {
         return vars;
     }
 
-    // ---------- Undeclared scope (expose all non-agent vars) ----------
-
     @Nested
     class UndeclaredScope {
 
@@ -94,7 +92,9 @@ class AgentContextResolverTest {
             when(runtimeService.getVariables(EXECUTION_ID)).thenReturn(Map.of());
             AgentContextSpec spec = new AgentContextSpec(PROC_DEF_ID, "agent1", List.of());
 
-            assertTrue(resolver.resolve(EXECUTION_ID, spec).variables().isEmpty());
+            ResolvedContext result = resolver.resolve(EXECUTION_ID, spec);
+
+            assertTrue(result.variables().isEmpty());
         }
 
         @Test
@@ -103,7 +103,9 @@ class AgentContextResolverTest {
                     Map.of("_agentState", "RUNNING", "_agentToolCallId", "tc-1"));
             AgentContextSpec spec = new AgentContextSpec(PROC_DEF_ID, "agent1", List.of());
 
-            assertTrue(resolver.resolve(EXECUTION_ID, spec).variables().isEmpty());
+            ResolvedContext result = resolver.resolve(EXECUTION_ID, spec);
+
+            assertTrue(result.variables().isEmpty());
         }
 
         @Test
@@ -126,8 +128,6 @@ class AgentContextResolverTest {
             assertEquals(Map.of("k", "v"), result.variables().get("data"));
         }
     }
-
-    // ---------- Declared scope (filter to named subset) ----------
 
     @Nested
     class DeclaredScope {
@@ -168,7 +168,9 @@ class AgentContextResolverTest {
                     new ContextVariableDeclaration("_agentState")
             ));
 
-            assertTrue(resolver.resolve(EXECUTION_ID, spec).variables().isEmpty());
+            ResolvedContext result = resolver.resolve(EXECUTION_ID, spec);
+
+            assertTrue(result.variables().isEmpty());
         }
     }
 }
