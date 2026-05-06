@@ -36,19 +36,26 @@ public abstract class AgentUtilityRegistry<T> {
     }
 
     public Optional<T> resolve(String processDefinitionId, String elementId) {
-        HashMap<String, T> cachedContextMap 
-                = cache.computeIfAbsent(processDefinitionId, keyId -> new HashMap<>());
-
-        T result = cachedContextMap.computeIfAbsent(elementId,
-                keyId -> doScan(processDefinitionId, keyId));
-        return Optional.ofNullable(result);
+        HashMap<String, T> resultMap = cache.compute(processDefinitionId, (key, value) -> {
+            HashMap<String, T> currentMap = value != null ? value : new HashMap<>();
+            if (!currentMap.containsKey(elementId)) {
+                try {
+                    T result = doScan(processDefinitionId, elementId);
+                    currentMap.put(elementId, result); // caches null for permanent misses
+                } catch (TransientException e) {
+                    // transient failure — don't cache, retry next time
+                }
+            }
+            return currentMap;
+        });
+        return Optional.ofNullable(resultMap.get(elementId));
     }
 
     public void unregisterAll() {
         cache.clear();
     }
 
-    protected T doScan(String processDefinitionId, String elementId) {
+    protected T doScan(String processDefinitionId, String elementId) throws TransientException {
         Optional<AgentConfig> config = agentConfigRegistry.resolve(processDefinitionId, elementId);
         if (config.isEmpty()) {
             return null;
@@ -75,22 +82,28 @@ public abstract class AgentUtilityRegistry<T> {
             return catalogue;
         } catch (IOException e) {
             LOG.error("Failed to scan process definition '{}' for '{}'", processDefinitionId, this.getClass(), e);
-            return null; // transient failure — don't cache, retry next time
+            throw new TransientException(e); // transient failure — don't cache, retry next time
         } catch (NotFoundException e) {
             LOG.error("Process definition '{}' not found", processDefinitionId, e);
-            throw e;
+            return null;
         } catch (AuthorizationException e) {
             LOG.error("Unauthorized process definition access attempt on '{}'", processDefinitionId, e);
-            throw e;    
+            return null;    
         }
     }
 
     protected Element findElementById(Element element, String id) {
-        if (id.equals(element.attribute("id"))) return element;
+        if (id.equals(element.attribute("id")))
+            return element;
         for (Element child : element.elements()) {
             Element found = findElementById(child, id);
-            if (found != null) return found;
+            if (found != null)
+                return found;
         }
         return null;
     }
+}
+    
+final class TransientException extends RuntimeException {
+    TransientException(Exception cause) { super(cause); }
 }
