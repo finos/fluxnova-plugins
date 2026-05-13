@@ -97,9 +97,16 @@ spring.ai.mcp.server.type=sync
 </bpmn:definitions>
 ```
 
-#### 4. Connect an MCP client
+#### 4. Compile and build
 
-Point any MCP-compatible client (Claude Desktop, a custom LLM agent, MCP Inspector) at the Spring AI MCP server endpoint. The tool `KYC Review Tool` will appear in the tool list and can be called directly.
+Compile and Build the  application using  `mvn clean install`. Once done, run your application. 
+
+#### 5. Connect an MCP client
+
+Point any MCP-compatible client (Claude Desktop, a custom LLM agent, MCP Inspector) at the Spring AI MCP server endpoint. The tool `KYC Review Tool` will appear in the tool list and can be called directly. For simplicity, use MCP Inspector:
+```bash
+npx @modelcontextprotocol/inspector
+```
 
 MCP call:
 ```json

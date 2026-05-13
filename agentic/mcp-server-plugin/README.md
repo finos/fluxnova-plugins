@@ -151,3 +151,10 @@ spring:
 | `ToolConfig` | `...server.registry` | Immutable tool descriptor |
 | `ToolHandler` | `...server.model` | Functional interface for tool execution |
 | `McpServerSpringAutoConfiguration` | `...server.autoconfigure` | Spring Boot auto-configuration |
+
+
+# Testing
+Point any MCP-compatible client (Claude Desktop, a custom LLM agent, MCP Inspector) at the Spring AI MCP server endpoint. For simplicity, use MCP Inspector:
+```bash
+npx @modelcontextprotocol/inspector
+```

@@ -240,3 +240,10 @@ flowchart TD
 | `ToolDefinition` | `...process.model` | BPMN-derived tool descriptor |
 | `ToolParameter` | `...process.model` | Single parameter descriptor |
 | `McpProcessStartEventAutoConfiguration` | `...process.autoconfigure` | Spring Boot auto-configuration |
+
+
+# Testing
+Point any MCP-compatible client (Claude Desktop, a custom LLM agent, MCP Inspector) at the Spring AI MCP server endpoint. For simplicity, use MCP Inspector:
+```bash
+npx @modelcontextprotocol/inspector
+```
