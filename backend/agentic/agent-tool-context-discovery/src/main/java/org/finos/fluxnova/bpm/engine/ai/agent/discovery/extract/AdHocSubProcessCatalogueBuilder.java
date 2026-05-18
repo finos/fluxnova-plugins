@@ -1,9 +1,9 @@
 package org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract;
 
-import org.finos.fluxnova.bpm.engine.ActivityTypes;
 import org.finos.fluxnova.bpm.engine.ProcessEngineException;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolCatalogue;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolEntry;
+import org.finos.fluxnova.bpm.engine.impl.bpmn.behavior.AdHocSubProcessValidationHelper;
 import org.finos.fluxnova.bpm.engine.impl.util.xml.Element;
 import org.finos.fluxnova.bpm.engine.impl.util.xml.Namespace;
 
@@ -16,51 +16,32 @@ public class AdHocSubProcessCatalogueBuilder implements AgentToolCatalogueBuilde
 
     private static final Namespace CAMUNDA_NS = new Namespace("http://camunda.org/schema/1.0/bpmn");
 
-    private static final Set<String> ACTIVITY_TAG_NAMES = Set.of(
-            ActivityTypes.TASK,
-            ActivityTypes.TASK_SERVICE,
-            ActivityTypes.TASK_SEND_TASK,
-            ActivityTypes.TASK_RECEIVE_TASK,
-            ActivityTypes.TASK_USER_TASK,
-            ActivityTypes.TASK_MANUAL_TASK,
-            ActivityTypes.TASK_BUSINESS_RULE,
-            ActivityTypes.TASK_SCRIPT,
-            ActivityTypes.SUB_PROCESS,
-            ActivityTypes.CALL_ACTIVITY,
-            ActivityTypes.SUB_PROCESS_AD_HOC
-    );
-
-    private static final Pattern SIMPLE_EL = Pattern.compile(
-            "^\\s*\\$\\{\\s*([a-zA-Z_]\\w*)(?:\\.[a-zA-Z_]\\w*)*\\s*\\}\\s*$");
+    private static final Pattern SIMPLE_EL =
+            Pattern.compile("^\\s*\\$\\{\\s*([a-zA-Z_]\\w*)(?:\\.[a-zA-Z_]\\w*)*\\s*\\}\\s*$");
 
     @Override
     public AgentToolCatalogue build(Element scopeElement, String processDefinitionId) {
         Set<String> sequenceFlowTargets = collectSequenceFlowTargets(scopeElement);
 
-        List<Element> activityElements = scopeElement.elements().stream()
-                .filter(this::isActivityElement)
-                .toList();
+        List<Element> activityElements =
+                scopeElement.elements().stream().filter(this::isActivityElement).toList();
 
         List<String> errors = activityElements.stream()
                 .filter(child -> child.attribute("id") == null || child.attribute("id").isBlank())
-                .map(child -> "Activity element with missing id in scope '" + scopeElement.attribute("id") + "'")
+                .map(child -> "Activity element with missing id in scope '"
+                        + scopeElement.attribute("id") + "'")
                 .toList();
 
         if (!errors.isEmpty()) {
-            throw new ProcessEngineException(
-                    "Invalid tool configuration in scope '" + scopeElement.attribute("id")
-                            + "' for process definition '" + processDefinitionId + "': "
-                            + String.join("; ", errors));
+            throw new ProcessEngineException("Invalid tool configuration in scope '"
+                    + scopeElement.attribute("id") + "' for process definition '"
+                    + processDefinitionId + "': " + String.join("; ", errors));
         }
 
         List<AgentToolEntry> tools = activityElements.stream()
                 .filter(child -> !sequenceFlowTargets.contains(child.attribute("id")))
-                .map(child -> new AgentToolEntry(
-                        child.attribute("id"),
-                        child.attribute("name"),
-                        extractDocumentation(child),
-                        extractReads(child),
-                        extractWrites(child)))
+                .map(child -> new AgentToolEntry(child.attribute("id"), child.attribute("name"),
+                        extractDocumentation(child), extractReads(child), extractWrites(child)))
                 .toList();
 
         return new AgentToolCatalogue(processDefinitionId, scopeElement.attribute("id"), tools);
@@ -78,21 +59,34 @@ public class AdHocSubProcessCatalogueBuilder implements AgentToolCatalogueBuilde
     }
 
     private boolean isActivityElement(Element element) {
-        return ACTIVITY_TAG_NAMES.contains(element.getTagName());
+        String tagName = element.getTagName();
+        // sequenceFlow is a connection element, not an activity
+        if ("sequenceFlow".equals(tagName)) {
+            return false;
+        }
+        // Raw <endEvent> maps to "noneEndEvent" internally; the XML tag name
+        // "endEvent" is not in isNonStartableActivityType's list so must be handled explicitly
+        if ("endEvent".equals(tagName)) {
+            return false;
+        }
+        return !AdHocSubProcessValidationHelper.isNonStartableActivityType(tagName);
     }
 
     private String extractDocumentation(Element element) {
         Element doc = element.element("documentation");
-        if (doc == null) return null;
+        if (doc == null)
+            return null;
         String text = doc.getText();
         return (text == null || text.isBlank()) ? null : text.strip();
     }
 
     private Set<String> extractReads(Element element) {
         Element extensionElements = element.element("extensionElements");
-        if (extensionElements == null) return Set.of();
+        if (extensionElements == null)
+            return Set.of();
         Element inputOutputElement = extensionElements.elementNS(CAMUNDA_NS, "inputOutput");
-        if (inputOutputElement == null) return Set.of();
+        if (inputOutputElement == null)
+            return Set.of();
 
         return inputOutputElement.elementsNS(CAMUNDA_NS, "inputParameter").stream()
                 .flatMap(inputParam -> walk(inputParam).stream())
@@ -101,9 +95,11 @@ public class AdHocSubProcessCatalogueBuilder implements AgentToolCatalogueBuilde
 
     private Set<String> extractWrites(Element element) {
         Element extensionElements = element.element("extensionElements");
-        if (extensionElements == null) return Set.of();
+        if (extensionElements == null)
+            return Set.of();
         Element inputOutputElement = extensionElements.elementNS(CAMUNDA_NS, "inputOutput");
-        if (inputOutputElement == null) return Set.of();
+        if (inputOutputElement == null)
+            return Set.of();
 
         Set<String> writes = new LinkedHashSet<>();
         for (Element outputParam : inputOutputElement.elementsNS(CAMUNDA_NS, "outputParameter")) {
@@ -116,13 +112,15 @@ public class AdHocSubProcessCatalogueBuilder implements AgentToolCatalogueBuilde
     }
 
     static Optional<String> scopeReadFor(String expression) {
-        if (expression == null) return Optional.empty();
+        if (expression == null)
+            return Optional.empty();
         Matcher matcher = SIMPLE_EL.matcher(expression);
         return matcher.matches() ? Optional.of(matcher.group(1)) : Optional.empty();
     }
 
     static Set<String> walk(Element node) {
-        if (isFluxnovaScript(node)) return Set.of();
+        if (isFluxnovaScript(node))
+            return Set.of();
         if (isFluxnovaList(node)) {
             return node.elementsNS(CAMUNDA_NS, "value").stream()
                     .flatMap(value -> walk(value).stream())
@@ -134,9 +132,9 @@ public class AdHocSubProcessCatalogueBuilder implements AgentToolCatalogueBuilde
                     .collect(Collectors.toCollection(LinkedHashSet::new));
         }
         return node.elements().stream()
-                .filter(child -> isFluxnovaList(child) || isFluxnovaMap(child) || isFluxnovaScript(child))
-                .findFirst()
-                .map(AdHocSubProcessCatalogueBuilder::walk)
+                .filter(child -> isFluxnovaList(child) || isFluxnovaMap(child)
+                        || isFluxnovaScript(child))
+                .findFirst().map(AdHocSubProcessCatalogueBuilder::walk)
                 .orElseGet(() -> scopeReadFor(node.getText()).map(Set::of).orElse(Set.of()));
     }
 
