@@ -1,0 +1,124 @@
+package org.finos.fluxnova.bpm.engine.ai.agent.llm.service;
+
+import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.ResolvedContext;
+import org.finos.fluxnova.bpm.engine.ai.agent.llm.model.ConversationEntry;
+import org.finos.fluxnova.bpm.engine.ai.agent.llm.model.LlmResponse;
+import org.finos.fluxnova.bpm.engine.ai.agent.llm.model.ToolCallRequest;
+import org.finos.fluxnova.bpm.engine.ai.agent.model.AgentConfig;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.ToolResponseMessage;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+/**
+ * Internal helper for {@link SpringAiLlmService}. Maps between provider-agnostic
+ * {@link ConversationEntry} DTOs and Spring AI {@link Message} types so Spring AI types
+ * do not leak outside this package.
+ */
+class ConversationMapper {
+
+    /**
+     * Builds the Spring AI message list for the next ChatClient call.
+     *
+     * <p>Order: agent system prompt, prior conversation history, and — when a non-empty
+     * context is supplied — a fresh system message containing the current variable
+     * values as {@code name = value} lines. The context message is refreshed on
+     * <strong>every</strong> turn so the LLM's view of available variables stays current
+     * between iterations.</p>
+     *
+     * <p>The mapper does not introduce or label the context block — how the LLM should
+     * interpret these variables is the agent author's responsibility (via
+     * {@link AgentConfig#systemPrompt()}). When the context is {@code null} or empty, no
+     * context message is emitted.</p>
+     */
+    List<Message> toSpringAi(AgentConfig config,
+                             ResolvedContext context,
+                             List<ConversationEntry> history) {
+        List<Message> out = new ArrayList<>();
+        if (config.systemPrompt() != null && !config.systemPrompt().isBlank()) {
+            out.add(new SystemMessage(config.systemPrompt()));
+        }
+        if (history != null) {
+            for (ConversationEntry entry : history) {
+                out.add(toSpringAi(entry));
+            }
+        }
+        String contextBlock = formatContext(context);
+        if (contextBlock != null) {
+            out.add(new SystemMessage(contextBlock));
+        }
+        return out;
+    }
+
+    private Message toSpringAi(ConversationEntry entry) {
+        return switch (entry.role()) {
+            case SYSTEM -> new SystemMessage(entry.content() == null ? "" : entry.content());
+            case USER -> new UserMessage(entry.content() == null ? "" : entry.content());
+            case ASSISTANT -> new AssistantMessage(
+                entry.content() == null ? "" : entry.content(),
+                Map.of(),
+                entry.toolCalls().stream()
+                    .map(tc -> new AssistantMessage.ToolCall(
+                        tc.toolCallId(),
+                        "function",
+                        tc.toolId(),
+                        "{}"))
+                    .collect(Collectors.toList()));
+            case TOOL -> new ToolResponseMessage(List.of(
+                new ToolResponseMessage.ToolResponse(
+                    entry.toolCallId(),
+                    "",
+                    entry.content() == null ? "" : entry.content())));
+        };
+    }
+
+    /**
+     * Extracts assistant text and tool calls from a Spring AI {@link ChatResponse} and
+     * appends a corresponding {@link ConversationEntry} to the supplied prior history.
+     */
+    LlmResponse toLlmResponse(ChatResponse response, List<ConversationEntry> priorHistory) {
+        Generation generation = response.getResult();
+        AssistantMessage assistant = generation == null ? null : generation.getOutput();
+
+        String text = assistant == null ? null : assistant.getText();
+        List<AssistantMessage.ToolCall> springCalls =
+            assistant == null || assistant.getToolCalls() == null
+                ? List.of()
+                : assistant.getToolCalls();
+
+        List<ToolCallRequest> toolCalls = springCalls.stream()
+            .map(tc -> new ToolCallRequest(tc.id(), tc.name()))
+            .collect(Collectors.toList());
+
+        List<ConversationEntry> updated = new ArrayList<>(
+            priorHistory == null ? List.of() : priorHistory);
+        updated.add(ConversationEntry.assistant(text, toolCalls));
+
+        return new LlmResponse(text, toolCalls, updated);
+    }
+
+    private static String formatContext(ResolvedContext context) {
+        if (context == null || context.variables() == null || context.variables().isEmpty()) {
+            return null;
+        }
+        StringBuilder sb = new StringBuilder();
+        context.variables().forEach((name, value) -> {
+            if (sb.length() > 0) sb.append('\n');
+            sb.append(name).append(" = ").append(format(value));
+        });
+        return sb.toString();
+    }
+
+    private static String format(Object value) {
+        if (value == null) return "null";
+        return value.toString();
+    }
+}
