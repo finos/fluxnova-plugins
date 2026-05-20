@@ -17,5 +17,6 @@
   <modules>
     <module>../shared</module>
     <module>agent-config</module>
+    <module>agent-tool-context-discovery</module>
   </modules>
 </project>

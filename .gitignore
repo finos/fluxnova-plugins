@@ -3,6 +3,8 @@ target
 .classpath
 .project
 .settings
+
+.vscode
 *.iml
 *.sublime-project
 *.sublime-workspace
@@ -12,6 +14,11 @@ target
 **/target
 *.DS_Store
 .flattened-pom.xml
+.editorconfig
+build.properties
+bin
+.metadata
+transaction.log
 # misc
 .DS_Store
 .env.local
