@@ -12,3 +12,9 @@ target
 **/target
 *.DS_Store
 .flattened-pom.xml
+# misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
