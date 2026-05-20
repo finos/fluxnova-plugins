@@ -1,10 +1,6 @@
 package org.finos.fluxnova.bpm.engine.shared.model;
 
-public record ToolInvocationResult(
-        String toolCallId,
-        boolean success,
-        String errorMessage
-) {
+public record ToolInvocationResult(String toolCallId, boolean success, String errorMessage) {
     public static ToolInvocationResult success(String toolCallId) {
         return new ToolInvocationResult(toolCallId, true, null);
     }

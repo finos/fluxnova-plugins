@@ -1,11 +1,10 @@
 package org.finos.fluxnova.bpm.engine.ai.agent.llm.service;
 
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.ResolvedContext;
-import org.finos.fluxnova.bpm.engine.ai.agent.llm.model.ConversationEntry;
-import org.finos.fluxnova.bpm.engine.ai.agent.llm.model.LlmResponse;
-import org.finos.fluxnova.bpm.engine.ai.agent.llm.model.Role;
-import org.finos.fluxnova.bpm.engine.ai.agent.llm.model.ToolCallRequest;
 import org.finos.fluxnova.bpm.engine.ai.agent.model.AgentConfig;
+import org.finos.fluxnova.bpm.engine.shared.model.ConversationEntry;
+import org.finos.fluxnova.bpm.engine.shared.model.LlmResponse;
+import org.finos.fluxnova.bpm.engine.shared.model.ToolCallRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
@@ -20,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.finos.fluxnova.bpm.engine.shared.model.Role.ASSISTANT;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ConversationMapperTest {
@@ -86,7 +86,7 @@ class ConversationMapperTest {
             ConversationEntry.user("hello"),
             ConversationEntry.assistant("calling tool",
                 List.of(new ToolCallRequest("call-1", "creditScoreCheck"))),
-            ConversationEntry.toolResult("call-1", "score=720")
+            ConversationEntry.tool("call-1", Map.of("status","score=720"))
         );
 
         List<Message> messages = mapper.toSpringAi(config, context, history);
@@ -104,7 +104,7 @@ class ConversationMapperTest {
         ToolResponseMessage toolResponse = (ToolResponseMessage) messages.get(3);
         assertEquals(1, toolResponse.getResponses().size());
         assertEquals("call-1", toolResponse.getResponses().get(0).id());
-        assertEquals("score=720", toolResponse.getResponses().get(0).responseData());
+        assertEquals("[score=720]", toolResponse.getResponses().get(0).responseData());
     }
 
     @Test
@@ -125,7 +125,7 @@ class ConversationMapperTest {
 
         assertEquals(2, llm.updatedHistory().size());
         ConversationEntry appended = llm.updatedHistory().get(1);
-        assertEquals(Role.ASSISTANT, appended.role());
+        assertEquals(ASSISTANT, appended.role());
         assertEquals("Running credit check.", appended.content());
         assertEquals(1, appended.toolCalls().size());
     }

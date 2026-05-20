@@ -2,9 +2,9 @@ package org.finos.fluxnova.bpm.engine.ai.agent.llm.service;
 
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolCatalogue;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.ResolvedContext;
-import org.finos.fluxnova.bpm.engine.ai.agent.llm.model.ConversationEntry;
-import org.finos.fluxnova.bpm.engine.ai.agent.llm.model.LlmResponse;
 import org.finos.fluxnova.bpm.engine.ai.agent.model.AgentConfig;
+import org.finos.fluxnova.bpm.engine.shared.model.ConversationEntry;
+import org.finos.fluxnova.bpm.engine.shared.model.LlmResponse;
 
 import java.util.List;
 

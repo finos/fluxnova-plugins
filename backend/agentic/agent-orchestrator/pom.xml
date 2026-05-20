@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project
-  xmlns="http://maven.apache.org/POM/4.0.0"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>org.finos.fluxnova.bpm</groupId>
@@ -11,28 +9,11 @@
     <version>0.0.1-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
-  <artifactId>fluxnova-engine-plugins-ai-agent-llm-connector</artifactId>
+  <artifactId>fluxnova-engine-plugins-ai-agent-orchestrator</artifactId>
   <version>0.0.1-SNAPSHOT</version>
   <packaging>jar</packaging>
-  <name>Fluxnova Platform - engine plugins - ai - agent llm connector</name>
-  <description>Calls the configured LLM provider for an agent subprocess and normalises the response</description>
-
-  <properties>
-    <spring-ai.version>1.0.0</spring-ai.version>
-  </properties>
-
-  <dependencyManagement>
-    <dependencies>
-      <dependency>
-        <groupId>org.springframework.ai</groupId>
-        <artifactId>spring-ai-bom</artifactId>
-        <version>${spring-ai.version}</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-    </dependencies>
-  </dependencyManagement>
-
+  <name>Fluxnova Platform - engine plugins - ai - agent orchestrator</name>
+  <description>Orchestrates the agentic subprocess loop: LLM calls, tool dispatch, result feedback</description>
   <dependencies>
     <dependency>
       <groupId>org.finos.fluxnova.bpm</groupId>
@@ -49,28 +30,35 @@
       <artifactId>fluxnova-engine-plugins-ai-agent-tool-context-discovery</artifactId>
       <version>${project.version}</version>
     </dependency>
-
+    <dependency>
+      <groupId>org.finos.fluxnova.bpm</groupId>
+      <artifactId>fluxnova-engine-plugins-ai-agentic-tool-invocation</artifactId>
+      <version>${project.version}</version>
+    </dependency>
     <dependency>
       <groupId>org.finos.fluxnova.bpm</groupId>
       <artifactId>fluxnova-engine</artifactId>
       <scope>provided</scope>
     </dependency>
-
     <dependency>
-      <groupId>org.springframework.ai</groupId>
-      <artifactId>spring-ai-client-chat</artifactId>
+      <groupId>org.finos.fluxnova.bpm.springboot</groupId>
+      <artifactId>fluxnova-bpm-spring-boot-starter</artifactId>
+      <scope>provided</scope>
     </dependency>
-
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-autoconfigure</artifactId>
       <scope>provided</scope>
     </dependency>
     <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+    <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
     </dependency>
-
+    <!-- Test dependencies -->
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
@@ -87,9 +75,10 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-test</artifactId>
-      <scope>test</scope>
+      <groupId>org.finos.fluxnova.bpm</groupId>
+      <artifactId>fluxnova-engine-plugins-ai-agent-llm-connector</artifactId>
+      <version>0.0.1-SNAPSHOT</version>
+      <scope>compile</scope>
     </dependency>
   </dependencies>
   <build>

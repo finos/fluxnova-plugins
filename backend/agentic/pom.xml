@@ -20,5 +20,6 @@
     <module>agent-tool-context-discovery</module>
     <module>agent-llm-connector</module>
     <module>agent-tool-invocation</module>
+    <module>agent-orchestrator</module>
   </modules>
 </project>

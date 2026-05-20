@@ -1,10 +1,10 @@
 package org.finos.fluxnova.bpm.engine.ai.agent.llm.service;
 
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.ResolvedContext;
-import org.finos.fluxnova.bpm.engine.ai.agent.llm.model.ConversationEntry;
-import org.finos.fluxnova.bpm.engine.ai.agent.llm.model.LlmResponse;
-import org.finos.fluxnova.bpm.engine.ai.agent.llm.model.ToolCallRequest;
 import org.finos.fluxnova.bpm.engine.ai.agent.model.AgentConfig;
+import org.finos.fluxnova.bpm.engine.shared.model.ConversationEntry;
+import org.finos.fluxnova.bpm.engine.shared.model.LlmResponse;
+import org.finos.fluxnova.bpm.engine.shared.model.ToolCallRequest;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
@@ -76,7 +76,7 @@ class ConversationMapper {
                 new ToolResponseMessage.ToolResponse(
                     entry.toolCallId(),
                     "",
-                    entry.content() == null ? "" : entry.content())));
+                    !entry.toolResult().containsKey("error") ? entry.toolResult().values().toString() : "error")));
         };
     }
 
