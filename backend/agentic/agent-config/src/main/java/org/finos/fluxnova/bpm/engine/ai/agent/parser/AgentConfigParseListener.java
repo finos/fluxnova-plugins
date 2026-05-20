@@ -3,12 +3,11 @@ package org.finos.fluxnova.bpm.engine.ai.agent.parser;
 import org.finos.fluxnova.bpm.engine.BpmnParseException;
 import org.finos.fluxnova.bpm.engine.ai.agent.extract.AgentConfigElementWalker;
 import org.finos.fluxnova.bpm.engine.ai.agent.extract.AgentConfigValidator;
-import org.finos.fluxnova.bpm.engine.shared.agent.AgentModelConstants;
 import org.finos.fluxnova.bpm.engine.impl.bpmn.parser.AbstractBpmnParseListener;
 import org.finos.fluxnova.bpm.engine.impl.persistence.entity.ProcessDefinitionEntity;
 import org.finos.fluxnova.bpm.engine.impl.util.xml.Element;
+import org.finos.fluxnova.bpm.engine.shared.agent.AgentModelConstants;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -27,8 +26,6 @@ public class AgentConfigParseListener extends AbstractBpmnParseListener {
 
     @Override
     public void parseRootElement(Element rootElement, List<ProcessDefinitionEntity> processDefinitions) {
-        List<String> errors = new ArrayList<>();
-        Element offendingElement = null;
 
         for (Element process : rootElement.elements("process")) {
             List<Element> walked = walker.walk(process);
@@ -44,15 +41,10 @@ public class AgentConfigParseListener extends AbstractBpmnParseListener {
                     continue;
                 }
                 List<String> elementErrors = AgentConfigValidator.validate(config, element.attribute("id"), elementIds);
-                if (!elementErrors.isEmpty() && offendingElement == null) {
-                    offendingElement = element;
+                if (!elementErrors.isEmpty()) {
+                    throw new BpmnParseException(String.join("; ", elementErrors), element);
                 }
-                errors.addAll(elementErrors);
             }
-        }
-
-        if (!errors.isEmpty()) {
-            throw new BpmnParseException(String.join("; ", errors), offendingElement);
         }
     }
 

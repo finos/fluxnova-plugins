@@ -1,18 +1,16 @@
 package org.finos.fluxnova.bpm.engine.ai.agent.parser;
 
 import org.finos.fluxnova.bpm.engine.BpmnParseException;
-import org.finos.fluxnova.bpm.engine.shared.xml.BpmnXmlParser;
 import org.finos.fluxnova.bpm.engine.impl.util.xml.Element;
 import org.finos.fluxnova.bpm.engine.impl.util.xml.Parse;
+import org.finos.fluxnova.bpm.engine.shared.xml.BpmnXmlParser;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 class AgentConfigParseListenerTest {
 
@@ -82,7 +80,7 @@ class AgentConfigParseListenerTest {
     }
 
     @Test
-    void parseRootElement_whenMultipleErrors_reportsAll() {
+    void parseRootElement_whenMultipleErrors_reportsAllInFirstElement() {
         String bpmn = """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
@@ -105,11 +103,11 @@ class AgentConfigParseListenerTest {
         BpmnParseException ex = assertThrows(BpmnParseException.class,
                 () -> listener.parseRootElement(parseRoot(bpmn), List.of()));
         assertTrue(ex.getMessage().contains("agentA"), "expected agentA in message: " + ex.getMessage());
-        assertTrue(ex.getMessage().contains("agentB"), "expected agentB in message: " + ex.getMessage());
+        assertFalse(ex.getMessage().contains("agentB"), "expected agentB in message: " + ex.getMessage());
     }
 
     @Test
-    void parseRootElement_whenErrorsAcrossProcesses_reportsAll() {
+    void parseRootElement_whenErrorsAcrossProcesses_reportsAllInFirstElement() {
         String bpmn = """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
@@ -134,7 +132,7 @@ class AgentConfigParseListenerTest {
         BpmnParseException ex = assertThrows(BpmnParseException.class,
                 () -> listener.parseRootElement(parseRoot(bpmn), List.of()));
         assertTrue(ex.getMessage().contains("agentP1"));
-        assertTrue(ex.getMessage().contains("agentP2"));
+        assertFalse(ex.getMessage().contains("agentP2"));
     }
 
 }
