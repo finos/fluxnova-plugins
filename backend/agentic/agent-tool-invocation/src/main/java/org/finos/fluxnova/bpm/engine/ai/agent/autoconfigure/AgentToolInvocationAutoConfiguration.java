@@ -3,6 +3,7 @@ package org.finos.fluxnova.bpm.engine.ai.agent.autoconfigure;
 import org.finos.fluxnova.bpm.engine.RuntimeService;
 import org.finos.fluxnova.bpm.engine.ai.agent.service.ToolInvocationService;
 import org.finos.fluxnova.bpm.engine.ai.agent.service.AdHocActivityToolInvocationServiceImpl;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -14,7 +15,7 @@ public class AgentToolInvocationAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public ToolInvocationService toolInvocationService(RuntimeService runtimeService) {
+    public ToolInvocationService toolInvocationService(ObjectProvider<RuntimeService> runtimeService) {
         return new AdHocActivityToolInvocationServiceImpl(runtimeService);
     }
 }

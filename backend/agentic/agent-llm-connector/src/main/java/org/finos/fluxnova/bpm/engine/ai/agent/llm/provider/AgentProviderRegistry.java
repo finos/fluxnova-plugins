@@ -31,9 +31,20 @@ public class AgentProviderRegistry {
     }
 
     private Map<String, ChatModel> resolve() {
-        if (registry == null) {
-            registry = Map.copyOf(supplier.get());
+        Map<String, ChatModel> current = registry;
+        if (current == null) {
+            current = Map.copyOf(supplier.get());
+            // Only cache a non-empty result. If the supplier is called before the
+            // Spring context has finished initialising (e.g. during pre-deployed
+            // process re-parsing in DeploymentCache), getBeansOfType returns an
+            // empty map. Caching that empty map would permanently hide all
+            // providers from later callers. By refusing to cache empty results we
+            // allow the next call — made once the context is fully ready — to
+            // resolve the real provider beans.
+            if (!current.isEmpty()) {
+                registry = current;
+            }
         }
-        return registry;
+        return current;
     }
 }

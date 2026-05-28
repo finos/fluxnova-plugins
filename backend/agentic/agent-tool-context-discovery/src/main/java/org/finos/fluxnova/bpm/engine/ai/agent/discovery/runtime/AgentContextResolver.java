@@ -4,6 +4,7 @@ import org.finos.fluxnova.bpm.engine.RuntimeService;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentContextSpec;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.ContextVariableDeclaration;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.ResolvedContext;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.util.Map;
 import java.util.Set;
@@ -15,14 +16,14 @@ public class AgentContextResolver {
 
     private static final String AGENT_VAR_PREFIX = "_agent";
 
-    private final RuntimeService runtimeService;
+    private final ObjectProvider<RuntimeService> runtimeService;
 
-    public AgentContextResolver(RuntimeService runtimeService) {
+    public AgentContextResolver(ObjectProvider<RuntimeService> runtimeService) {
         this.runtimeService = runtimeService;
     }
 
     public ResolvedContext resolve(String executionId, AgentContextSpec spec) {
-        Map<String, Object> processVariables = runtimeService.getVariables(executionId);
+        Map<String, Object> processVariables = runtimeService.getObject().getVariables(executionId);
 
         Set<String> declared = spec.declaredVariables().stream()
                 .map(ContextVariableDeclaration::name)

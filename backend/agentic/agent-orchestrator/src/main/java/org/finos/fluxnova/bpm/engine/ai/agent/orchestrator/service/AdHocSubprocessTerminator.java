@@ -1,17 +1,18 @@
 package org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.service;
 
 import org.finos.fluxnova.bpm.engine.RuntimeService;
+import org.springframework.beans.factory.ObjectProvider;
 
 public class AdHocSubprocessTerminator implements AgentTerminationHandler {
 
-    private final RuntimeService runtimeService;
+    private final ObjectProvider<RuntimeService> runtimeService;
 
-    public AdHocSubprocessTerminator(RuntimeService runtimeService) {
+    public AdHocSubprocessTerminator(ObjectProvider<RuntimeService> runtimeService) {
         this.runtimeService = runtimeService;
     }
 
     @Override
     public void complete(String scopeExecutionId) {
-        runtimeService.completeAdHocSubProcess(scopeExecutionId);
+        runtimeService.getObject().completeAdHocSubProcess(scopeExecutionId);
     }
 }

@@ -4,6 +4,7 @@ import org.finos.fluxnova.bpm.engine.AuthorizationException;
 import org.finos.fluxnova.bpm.engine.ProcessEngineException;
 import org.finos.fluxnova.bpm.engine.RepositoryService;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AgentContextSpecBuilder;
+import org.springframework.beans.factory.ObjectProvider;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentContextSpec;
 import org.finos.fluxnova.bpm.engine.ai.agent.model.AgentConfig;
 import org.finos.fluxnova.bpm.engine.ai.agent.registry.AgentConfigRegistry;
@@ -45,6 +46,9 @@ class AgentContextSpecRegistryTest {
     private RepositoryService repositoryService;
 
     @Mock
+    private ObjectProvider<RepositoryService> repositoryServiceProvider;
+
+    @Mock
     private AgentConfigRegistry agentConfigRegistry;
 
     @Mock
@@ -54,7 +58,8 @@ class AgentContextSpecRegistryTest {
 
     @BeforeEach
     void setUp() {
-        registry = new AgentContextSpecRegistry(repositoryService, agentConfigRegistry, builder);
+        lenient().when(repositoryServiceProvider.getObject()).thenReturn(repositoryService);
+        registry = new AgentContextSpecRegistry(repositoryServiceProvider, agentConfigRegistry, builder);
     }
 
     private AgentConfig config() {

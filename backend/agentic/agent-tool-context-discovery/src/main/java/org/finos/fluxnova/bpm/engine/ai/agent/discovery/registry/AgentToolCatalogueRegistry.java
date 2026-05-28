@@ -12,6 +12,7 @@ import org.finos.fluxnova.bpm.engine.impl.pvm.process.ActivityImpl;
 import org.finos.fluxnova.bpm.engine.repository.ProcessDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.util.HashMap;
 import java.util.Optional;
@@ -35,11 +36,11 @@ public class AgentToolCatalogueRegistry {
      */
     private final ConcurrentHashMap<String, HashMap<String, String>> resolvedAgents = new ConcurrentHashMap<>();
 
-    private final RepositoryService repositoryService;
+    private final ObjectProvider<RepositoryService> repositoryService;
     private final AgentConfigRegistry agentConfigRegistry;
     private final AgentToolCatalogueBuilder catalogueBuilder;
 
-    public AgentToolCatalogueRegistry(RepositoryService repositoryService,
+    public AgentToolCatalogueRegistry(ObjectProvider<RepositoryService> repositoryService,
                                       AgentConfigRegistry agentConfigRegistry,
                                       AgentToolCatalogueBuilder catalogueBuilder) {
         this.repositoryService = repositoryService;
@@ -83,7 +84,7 @@ public class AgentToolCatalogueRegistry {
     private AgentToolCatalogue doScan(String processDefinitionId, String toolScopeElementId) {
         try {
             ProcessDefinition processDefinition =
-                    repositoryService.getProcessDefinition(processDefinitionId);
+                    repositoryService.getObject().getProcessDefinition(processDefinitionId);
 
             if (!(processDefinition instanceof ProcessDefinitionEntity)) {
                 LOG.warn("Process definition '{}' is not an instance of ProcessDefinitionEntity, cannot scan for tools",

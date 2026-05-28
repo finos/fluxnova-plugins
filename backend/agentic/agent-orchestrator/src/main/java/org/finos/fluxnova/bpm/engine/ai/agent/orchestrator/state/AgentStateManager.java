@@ -7,6 +7,8 @@ import org.finos.fluxnova.bpm.engine.RuntimeService;
 import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.model.ToolResult;
 import org.finos.fluxnova.bpm.engine.shared.model.ConversationEntry;
 import org.finos.fluxnova.bpm.engine.shared.model.ToolCallRequest;
+import org.springframework.beans.factory.ObjectProvider;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -27,15 +29,15 @@ public class AgentStateManager {
             new TypeReference<>() {};
     private static final TypeReference<List<ToolCallRequest>> QUEUE_TYPE = new TypeReference<>() {};
 
-    private final RuntimeService runtimeService;
+    private final ObjectProvider<RuntimeService> runtimeService;
 
-    public AgentStateManager(RuntimeService runtimeService) {
+    public AgentStateManager(ObjectProvider<RuntimeService> runtimeService) {
         this.runtimeService = runtimeService;
     }
 
     public List<ConversationEntry> loadHistory(String executionId) {
         String json =
-                (String) runtimeService.getVariableLocal(executionId, VAR_CONVERSATION_HISTORY);
+                (String) runtimeService.getObject().getVariableLocal(executionId, VAR_CONVERSATION_HISTORY);
         if (json == null) {
             return new ArrayList<>();
         }
@@ -43,11 +45,11 @@ public class AgentStateManager {
     }
 
     public void saveHistory(String executionId, List<ConversationEntry> history) {
-        runtimeService.setVariableLocal(executionId, VAR_CONVERSATION_HISTORY, serialize(history));
+        runtimeService.getObject().setVariableLocal(executionId, VAR_CONVERSATION_HISTORY, serialize(history));
     }
 
     public void savePendingToolCalls(String executionId, Set<String> pending) {
-        runtimeService.setVariableLocal(executionId, VAR_PENDING_TOOL_CALLS, serialize(pending));
+        runtimeService.getObject().setVariableLocal(executionId, VAR_PENDING_TOOL_CALLS, serialize(pending));
     }
 
     public boolean isPendingToolCall(String executionId, String toolCallId) {
@@ -62,7 +64,7 @@ public class AgentStateManager {
     }
 
     public List<ToolResult> loadToolResultBuffer(String executionId) {
-        String json = (String) runtimeService.getVariableLocal(executionId, VAR_TOOL_RESULT_BUFFER);
+        String json = (String) runtimeService.getObject().getVariableLocal(executionId, VAR_TOOL_RESULT_BUFFER);
         if (json == null) {
             return new ArrayList<>();
         }
@@ -72,21 +74,21 @@ public class AgentStateManager {
     public void appendToResultBuffer(String executionId, ToolResult result) {
         List<ToolResult> buffer = loadToolResultBuffer(executionId);
         buffer.add(result);
-        runtimeService.setVariableLocal(executionId, VAR_TOOL_RESULT_BUFFER, serialize(buffer));
+        runtimeService.getObject().setVariableLocal(executionId, VAR_TOOL_RESULT_BUFFER, serialize(buffer));
     }
 
     public void appendAllToResultBuffer(String executionId, List<ToolResult> results) {
         List<ToolResult> buffer = loadToolResultBuffer(executionId);
         buffer.addAll(results);
-        runtimeService.setVariableLocal(executionId, VAR_TOOL_RESULT_BUFFER, serialize(buffer));
+        runtimeService.getObject().setVariableLocal(executionId, VAR_TOOL_RESULT_BUFFER, serialize(buffer));
     }
 
     public void clearToolResultBuffer(String executionId) {
-        runtimeService.removeVariableLocal(executionId, VAR_TOOL_RESULT_BUFFER);
+        runtimeService.getObject().removeVariableLocal(executionId, VAR_TOOL_RESULT_BUFFER);
     }
 
     public List<ToolCallRequest> loadToolCallQueue(String executionId) {
-        String json = (String) runtimeService.getVariableLocal(executionId, VAR_TOOL_CALL_QUEUE);
+        String json = (String) runtimeService.getObject().getVariableLocal(executionId, VAR_TOOL_CALL_QUEUE);
         if (json == null) {
             return new ArrayList<>();
         }
@@ -94,11 +96,11 @@ public class AgentStateManager {
     }
 
     public void saveToolCallQueue(String executionId, List<ToolCallRequest> queue) {
-        runtimeService.setVariableLocal(executionId, VAR_TOOL_CALL_QUEUE, serialize(queue));
+        runtimeService.getObject().setVariableLocal(executionId, VAR_TOOL_CALL_QUEUE, serialize(queue));
     }
 
     private Set<String> loadPendingToolCalls(String executionId) {
-        String json = (String) runtimeService.getVariableLocal(executionId, VAR_PENDING_TOOL_CALLS);
+        String json = (String) runtimeService.getObject().getVariableLocal(executionId, VAR_PENDING_TOOL_CALLS);
         if (json == null) {
             return new HashSet<>();
         }

@@ -1,5 +1,6 @@
 package org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.autoconfigure;
 
+import org.finos.fluxnova.bpm.engine.RepositoryService;
 import org.finos.fluxnova.bpm.engine.RuntimeService;
 import org.finos.fluxnova.bpm.engine.ai.agent.autoconfigure.AgentConfigAutoConfiguration;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.autoconfigure.AgentDiscoveryAutoConfiguration;
@@ -14,9 +15,10 @@ import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.engine.SubprocessTool
 import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.job.AgentOrchestrationJobHandler;
 import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.service.AdHocSubprocessTerminator;
 import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.service.AgentTerminationHandler;
-import org.finos.fluxnova.bpm.engine.ai.agent.service.ToolInvocationService;
 import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.state.AgentStateManager;
 import org.finos.fluxnova.bpm.engine.ai.agent.registry.AgentConfigRegistry;
+import org.finos.fluxnova.bpm.engine.ai.agent.service.ToolInvocationService;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -30,7 +32,7 @@ public class AgentOrchestratorAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public AgentStateManager agentStateManager(RuntimeService runtimeService) {
+    public AgentStateManager agentStateManager(ObjectProvider<RuntimeService> runtimeService) {
         return new AgentStateManager(runtimeService);
     }
 
@@ -48,7 +50,7 @@ public class AgentOrchestratorAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public AgentTerminationHandler adHocSubprocessTerminator(RuntimeService runtimeService) {
+    public AgentTerminationHandler adHocSubprocessTerminator(ObjectProvider<RuntimeService> runtimeService) {
         return new AdHocSubprocessTerminator(runtimeService);
     }
 

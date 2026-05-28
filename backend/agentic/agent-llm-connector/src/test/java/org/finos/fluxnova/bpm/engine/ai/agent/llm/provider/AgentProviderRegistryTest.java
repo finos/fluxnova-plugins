@@ -32,6 +32,26 @@ class AgentProviderRegistryTest {
     }
 
     @Test
+    void emptyResultIsNotCachedAllowingRetryOnNextAccess() {
+        ChatModel ollama = mock(ChatModel.class);
+        // Simulates the pre-deploy / early-context scenario: first call returns
+        // empty (ChatModel beans not yet initialised), second call returns the
+        // real providers once the context is fully ready.
+        int[] callCount = {0};
+        AgentProviderRegistry registry = new AgentProviderRegistry(() -> {
+            callCount[0]++;
+            return callCount[0] == 1 ? Map.of() : Map.of("ollama", ollama);
+        });
+
+        assertFalse(registry.has("ollama"), "should return false on first (empty) resolution");
+        assertEquals(1, callCount[0]);
+        assertTrue(registry.has("ollama"), "should return true once providers are available");
+        assertEquals(2, callCount[0], "supplier should have been called again after empty result");
+        registry.has("ollama");
+        assertEquals(2, callCount[0], "supplier should not be called again once result is cached");
+    }
+
+    @Test
     void supplierIsCalledLazilyOnFirstAccess() {
         ChatModel ollama = mock(ChatModel.class);
         int[] callCount = {0};

@@ -5,15 +5,16 @@ import org.finos.fluxnova.bpm.engine.RuntimeService;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolCatalogue;
 import org.finos.fluxnova.bpm.engine.shared.model.ToolCallRequest;
 import org.finos.fluxnova.bpm.engine.shared.model.ToolInvocationResult;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.util.List;
 import java.util.Map;
 
 public class AdHocActivityToolInvocationServiceImpl implements ToolInvocationService {
 
-    RuntimeService runtimeService;
+    private final ObjectProvider<RuntimeService> runtimeService;
 
-    public AdHocActivityToolInvocationServiceImpl(RuntimeService runtimeService) {
+    public AdHocActivityToolInvocationServiceImpl(ObjectProvider<RuntimeService> runtimeService) {
         this.runtimeService = runtimeService;
     }
 
@@ -28,7 +29,7 @@ public class AdHocActivityToolInvocationServiceImpl implements ToolInvocationSer
 
         try {
             Map<String, Map<String, Object>> variables = Map.of(request.toolId(), Map.of("_agentToolCallId", request.toolCallId()));
-            runtimeService.triggerAdHocActivities(adHocSubprocessId, List.of(request.toolId()), variables);
+            runtimeService.getObject().triggerAdHocActivities(adHocSubprocessId, List.of(request.toolId()), variables);
             return ToolInvocationResult.success(request.toolCallId());
         } catch (BadUserRequestException e) {
             return ToolInvocationResult.failure(request.toolCallId(), e.getMessage());

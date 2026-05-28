@@ -12,6 +12,7 @@ import org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry.AgentContextSpe
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry.AgentToolCatalogueRegistry;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.runtime.AgentContextResolver;
 import org.finos.fluxnova.bpm.engine.ai.agent.registry.AgentConfigRegistry;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -35,23 +36,23 @@ public class AgentDiscoveryAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public AgentToolCatalogueRegistry agentToolCatalogueRegistry(RepositoryService repositoryService,
-                                                                  AgentConfigRegistry agentConfigRegistry,
-                                                                  AgentToolCatalogueBuilder catalogueBuilder) {
+    public AgentToolCatalogueRegistry agentToolCatalogueRegistry(ObjectProvider<RepositoryService> repositoryService,
+                                                                 AgentConfigRegistry agentConfigRegistry,
+                                                                 AgentToolCatalogueBuilder catalogueBuilder) {
         return new AgentToolCatalogueRegistry(repositoryService, agentConfigRegistry, catalogueBuilder);
     }
 
     @Bean
     @ConditionalOnMissingBean
-    public AgentContextSpecRegistry agentContextSpecRegistry(RepositoryService repositoryService,
-                                                              AgentConfigRegistry agentConfigRegistry,
-                                                              AgentContextSpecBuilder extractor) {
+    public AgentContextSpecRegistry agentContextSpecRegistry(ObjectProvider<RepositoryService> repositoryService,
+                                                             AgentConfigRegistry agentConfigRegistry,
+                                                             AgentContextSpecBuilder extractor) {
         return new AgentContextSpecRegistry(repositoryService, agentConfigRegistry, extractor);
     }
 
     @Bean
     @ConditionalOnMissingBean
-    public AgentContextResolver agentContextResolver(RuntimeService runtimeService) {
+    public AgentContextResolver agentContextResolver(ObjectProvider<RuntimeService> runtimeService) {
         return new AgentContextResolver(runtimeService);
     }
 

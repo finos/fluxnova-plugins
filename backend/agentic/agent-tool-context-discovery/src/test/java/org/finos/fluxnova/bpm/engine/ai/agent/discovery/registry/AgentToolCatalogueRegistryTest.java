@@ -3,6 +3,7 @@ package org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry;
 import org.finos.fluxnova.bpm.engine.AuthorizationException;
 import org.finos.fluxnova.bpm.engine.RepositoryService;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AgentToolCatalogueBuilder;
+import org.springframework.beans.factory.ObjectProvider;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolCatalogue;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolEntry;
 import org.finos.fluxnova.bpm.engine.ai.agent.model.AgentConfig;
@@ -36,6 +37,9 @@ class AgentToolCatalogueRegistryTest {
     private RepositoryService repositoryService;
 
     @Mock
+    private ObjectProvider<RepositoryService> repositoryServiceProvider;
+
+    @Mock
     private AgentConfigRegistry agentConfigRegistry;
 
     @Mock
@@ -45,7 +49,8 @@ class AgentToolCatalogueRegistryTest {
 
     @BeforeEach
     void setUp() {
-        registry = new AgentToolCatalogueRegistry(repositoryService, agentConfigRegistry, catalogueBuilder);
+        lenient().when(repositoryServiceProvider.getObject()).thenReturn(repositoryService);
+        registry = new AgentToolCatalogueRegistry(repositoryServiceProvider, agentConfigRegistry, catalogueBuilder);
     }
 
     private AgentConfig config() {

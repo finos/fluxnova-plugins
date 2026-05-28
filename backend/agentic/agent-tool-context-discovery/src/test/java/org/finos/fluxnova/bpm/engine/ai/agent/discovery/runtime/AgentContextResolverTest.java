@@ -4,6 +4,7 @@ import org.finos.fluxnova.bpm.engine.RuntimeService;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentContextSpec;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.ContextVariableDeclaration;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.ResolvedContext;
+import org.springframework.beans.factory.ObjectProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -27,11 +28,15 @@ class AgentContextResolverTest {
     @Mock
     private RuntimeService runtimeService;
 
+    @Mock
+    private ObjectProvider<RuntimeService> runtimeServiceProvider;
+
     private AgentContextResolver resolver;
 
     @BeforeEach
     void setUp() {
-        resolver = new AgentContextResolver(runtimeService);
+        when(runtimeServiceProvider.getObject()).thenReturn(runtimeService);
+        resolver = new AgentContextResolver(runtimeServiceProvider);
     }
 
     private Map<String, Object> allVariables() {

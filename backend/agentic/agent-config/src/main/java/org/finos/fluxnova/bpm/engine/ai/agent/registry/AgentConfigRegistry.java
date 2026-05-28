@@ -7,6 +7,7 @@ import org.finos.fluxnova.bpm.engine.ai.agent.model.AgentConfig;
 import org.finos.fluxnova.bpm.engine.exception.NotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.io.InputStream;
 import java.util.HashMap;
@@ -30,16 +31,17 @@ public class AgentConfigRegistry {
 
     private final ConcurrentHashMap<String, HashMap<String, AgentConfig>> configCache = new ConcurrentHashMap<>();
 
-    private final RepositoryService repositoryService;
+    private final ObjectProvider<RepositoryService> repositoryService;
     private final AgentConfigExtractor extractor;
 
     /**
      * Creates a new registry backed by the given repository service and extractor.
      *
-     * @param repositoryService service used to fetch BPMN XML for process definitions
+     * @param repositoryService provider for the repository service, resolved lazily to avoid
+     *                          circular dependencies during engine initialisation
      * @param extractor         strategy for parsing agent configuration from BPMN XML
      */
-    public AgentConfigRegistry(RepositoryService repositoryService, AgentConfigExtractor extractor) {
+    public AgentConfigRegistry(ObjectProvider<RepositoryService> repositoryService, AgentConfigExtractor extractor) {
         this.repositoryService = repositoryService;
         this.extractor = extractor;
     }
@@ -72,7 +74,7 @@ public class AgentConfigRegistry {
     private HashMap<String, AgentConfig> doScan(String processDefinitionId) {
         InputStream xml;
         try {
-            xml = repositoryService.getProcessModel(processDefinitionId);
+            xml = repositoryService.getObject().getProcessModel(processDefinitionId);
         } catch (NotFoundException e) {
             LOG.error("Process definition '{}' not found", processDefinitionId, e);
             throw e;
