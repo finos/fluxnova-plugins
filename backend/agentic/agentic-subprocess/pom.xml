@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project
+        xmlns="http://maven.apache.org/POM/4.0.0"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
+>
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.finos.fluxnova.bpm</groupId>
+        <artifactId>fluxnova-engine-plugins-ai-agentic</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+    <artifactId>fluxnova-engine-plugins-ai-agentic-subprocess</artifactId>
+    <packaging>pom</packaging>
+    <name>Fluxnova Platform - engine plugins - ai - agentic subprocess</name>
+    <description>
+        Bundle module — declares all agentic subprocess modules as dependencies so that a single
+        dependency entry in a consuming application pulls in the full agentic feature set.
+    </description>
+    <dependencies>
+        <dependency>
+            <groupId>org.finos.fluxnova.bpm</groupId>
+            <artifactId>fluxnova-engine-plugins-ai-agent-config</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.finos.fluxnova.bpm</groupId>
+            <artifactId>fluxnova-engine-plugins-ai-agent-tool-context-discovery</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.finos.fluxnova.bpm</groupId>
+            <artifactId>fluxnova-engine-plugins-ai-agent-llm-connector</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.finos.fluxnova.bpm</groupId>
+            <artifactId>fluxnova-engine-plugins-ai-agentic-tool-invocation</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.finos.fluxnova.bpm</groupId>
+            <artifactId>fluxnova-engine-plugins-ai-agent-orchestrator</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+</project>

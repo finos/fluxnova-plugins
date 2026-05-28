@@ -6,12 +6,7 @@ import org.finos.fluxnova.bpm.engine.shared.model.ConversationEntry;
 import org.finos.fluxnova.bpm.engine.shared.model.LlmResponse;
 import org.finos.fluxnova.bpm.engine.shared.model.ToolCallRequest;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.MessageType;
-import org.springframework.ai.chat.messages.SystemMessage;
-import org.springframework.ai.chat.messages.ToolResponseMessage;
-import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.messages.*;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 
@@ -28,7 +23,7 @@ class ConversationMapperTest {
 
     private AgentConfig agentConfig(String systemPrompt) {
         return new AgentConfig("proc-1", "agent-1", "ollama", "llama3.1",
-            systemPrompt, "agent-1");
+                systemPrompt, "agent-1");
     }
 
     @Test
@@ -57,7 +52,7 @@ class ConversationMapperTest {
         List<Message> messages = mapper.toSpringAi(config, context, List.of());
 
         assertEquals(1, messages.size(),
-            "empty context should not emit a system message");
+                "empty context should not emit a system message");
         assertEquals(MessageType.SYSTEM, messages.get(0).getMessageType());
         assertEquals("sys", messages.get(0).getText());
     }
@@ -74,7 +69,7 @@ class ConversationMapperTest {
         assertEquals(2, messages.size());
         String contextText = messages.get(1).getText();
         assertEquals("customerId = c-1\namount = 250", contextText,
-            "context message should be raw key=value lines without prologue");
+                "context message should be raw key=value lines without prologue");
     }
 
     @Test
@@ -83,10 +78,10 @@ class ConversationMapperTest {
         ResolvedContext context = new ResolvedContext(Map.of());
 
         List<ConversationEntry> history = List.of(
-            ConversationEntry.user("hello"),
-            ConversationEntry.assistant("calling tool",
-                List.of(new ToolCallRequest("call-1", "creditScoreCheck"))),
-            ConversationEntry.tool("call-1", Map.of("status","score=720"))
+                ConversationEntry.user("hello"),
+                ConversationEntry.assistant("calling tool",
+                        List.of(new ToolCallRequest("call-1", "creditScoreCheck"))),
+                ConversationEntry.tool("call-1", Map.of("status", "score=720"))
         );
 
         List<Message> messages = mapper.toSpringAi(config, context, history);
@@ -110,10 +105,10 @@ class ConversationMapperTest {
     @Test
     void toLlmResponseExtractsTextAndToolCallsAndAppendsAssistantEntry() {
         List<ConversationEntry> prior = List.of(ConversationEntry.user("please run a check"));
-        AssistantMessage assistant = new AssistantMessage(
-            "Running credit check.",
-            Map.of(),
-            List.of(new AssistantMessage.ToolCall("call-1", "function", "creditScoreCheck", "{}")));
+        AssistantMessage assistant = AssistantMessage.builder()
+                .content("Running credit check.")
+                .toolCalls(List.of(new AssistantMessage.ToolCall("call-1", "function", "creditScoreCheck", "{}")))
+                .build();
         ChatResponse response = new ChatResponse(List.of(new Generation(assistant)));
 
         LlmResponse llm = mapper.toLlmResponse(response, prior);
@@ -139,7 +134,7 @@ class ConversationMapperTest {
 
         assertEquals("All done.", llm.assistantText());
         assertTrue(llm.toolCalls().isEmpty(),
-            "empty tool calls signals 'done' to the caller");
+                "empty tool calls signals 'done' to the caller");
         assertEquals(1, llm.updatedHistory().size());
     }
 
@@ -148,7 +143,7 @@ class ConversationMapperTest {
         AgentConfig config = agentConfig("sys");
 
         List<Message> messages = mapper.toSpringAi(config, null,
-            List.of(ConversationEntry.user("hi")));
+                List.of(ConversationEntry.user("hi")));
 
         // [system, user] — no context system message tacked on the end
         assertEquals(2, messages.size());

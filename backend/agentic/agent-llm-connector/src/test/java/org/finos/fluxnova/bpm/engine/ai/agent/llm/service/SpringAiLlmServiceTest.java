@@ -33,37 +33,37 @@ class SpringAiLlmServiceTest {
 
     private AgentConfig config(String provider, String model) {
         return new AgentConfig("proc-1", "agent-1", provider, model,
-            "You are an agent.", "agent-1");
+                "You are an agent.", "agent-1");
     }
 
     private AgentToolCatalogue catalogue() {
         return new AgentToolCatalogue("proc-1", "agent-1", List.of(
-            new AgentToolEntry("creditScoreCheck", "Credit Check",
-                "Looks up the credit score.",
-                Set.of("customerId"), Set.of("creditScore"))));
+                new AgentToolEntry("creditScoreCheck", "Credit Check",
+                        "Looks up the credit score.",
+                        Set.of("customerId"), Set.of("creditScore"))));
     }
 
     private ChatResponse stubResponse(String text, List<AssistantMessage.ToolCall> calls) {
         return new ChatResponse(List.of(
-            new Generation(new AssistantMessage(text, Map.of(), calls))));
+                new Generation(AssistantMessage.builder().content(text).toolCalls(calls).build())));
     }
 
     @Test
     void fullCallSelectsChatModelAndPassesPromptWithToolsAndContext() {
         ChatModel chatModel = mock(ChatModel.class);
         when(chatModel.call(any(Prompt.class)))
-            .thenReturn(stubResponse("Working on it.", List.of(
-                new AssistantMessage.ToolCall("call-1", "function", "creditScoreCheck", "{}"))));
+                .thenReturn(stubResponse("Working on it.", List.of(
+                        new AssistantMessage.ToolCall("call-1", "function", "creditScoreCheck", "{}"))));
 
         AgentProviderRegistry registry = new AgentProviderRegistry(() -> Map.of("ollama", chatModel));
         LlmService service = new SpringAiLlmService(registry, converter);
 
         ResolvedContext context = new ResolvedContext(Map.of("customerId", "c-1"));
         LlmResponse response = service.call(
-            config("ollama", "llama3.1"),
-            catalogue(),
-            context,
-            List.of(ConversationEntry.user("Run a credit check")));
+                config("ollama", "llama3.1"),
+                catalogue(),
+                context,
+                List.of(ConversationEntry.user("Run a credit check")));
 
         ArgumentCaptor<Prompt> captor = ArgumentCaptor.forClass(Prompt.class);
         verify(chatModel).call(captor.capture());
@@ -95,16 +95,16 @@ class SpringAiLlmServiceTest {
     void emptyToolCallListSignalsDone() {
         ChatModel chatModel = mock(ChatModel.class);
         when(chatModel.call(any(Prompt.class)))
-            .thenReturn(stubResponse("All checks complete.", List.of()));
+                .thenReturn(stubResponse("All checks complete.", List.of()));
 
         AgentProviderRegistry registry = new AgentProviderRegistry(() -> Map.of("ollama", chatModel));
         LlmService service = new SpringAiLlmService(registry, converter);
 
         LlmResponse response = service.call(
-            config("ollama", "llama3.1"),
-            catalogue(),
-            new ResolvedContext(Map.of()),
-            List.of());
+                config("ollama", "llama3.1"),
+                catalogue(),
+                new ResolvedContext(Map.of()),
+                List.of());
 
         assertTrue(response.toolCalls().isEmpty());
         assertEquals("All checks complete.", response.assistantText());
@@ -116,14 +116,14 @@ class SpringAiLlmServiceTest {
         LlmService service = new SpringAiLlmService(registry, converter);
 
         assertThrows(IllegalStateException.class, () -> service.call(
-            config("huggingface", "mistral-7b"), catalogue(), new ResolvedContext(Map.of()), List.of()));
+                config("huggingface", "mistral-7b"), catalogue(), new ResolvedContext(Map.of()), List.of()));
     }
 
     @Test
     void configOnlyOverloadSendsSystemPromptWithNoToolsOrContext() {
         ChatModel chatModel = mock(ChatModel.class);
         when(chatModel.call(any(Prompt.class)))
-            .thenReturn(stubResponse("Hello!", List.of()));
+                .thenReturn(stubResponse("Hello!", List.of()));
 
         AgentProviderRegistry registry = new AgentProviderRegistry(() -> Map.of("ollama", chatModel));
         LlmService service = new SpringAiLlmService(registry, converter);
@@ -141,7 +141,7 @@ class SpringAiLlmServiceTest {
 
         ToolCallingChatOptions options = (ToolCallingChatOptions) prompt.getOptions();
         assertTrue(options.getToolCallbacks() == null || options.getToolCallbacks().isEmpty(),
-            "no tool callbacks expected on the config-only overload");
+                "no tool callbacks expected on the config-only overload");
 
         assertEquals("Hello!", response.assistantText());
         assertEquals(1, response.updatedHistory().size());
@@ -151,16 +151,16 @@ class SpringAiLlmServiceTest {
     void contextHistoryOverloadInjectsContextWithoutTools() {
         ChatModel chatModel = mock(ChatModel.class);
         when(chatModel.call(any(Prompt.class)))
-            .thenReturn(stubResponse("Got it.", List.of()));
+                .thenReturn(stubResponse("Got it.", List.of()));
 
         AgentProviderRegistry registry = new AgentProviderRegistry(() -> Map.of("ollama", chatModel));
         LlmService service = new SpringAiLlmService(registry, converter);
 
         ResolvedContext context = new ResolvedContext(Map.of("customerId", "c-7"));
         LlmResponse response = service.call(
-            config("ollama", "llama3.1"),
-            context,
-            List.of(ConversationEntry.user("what's in scope?")));
+                config("ollama", "llama3.1"),
+                context,
+                List.of(ConversationEntry.user("what's in scope?")));
 
         ArgumentCaptor<Prompt> captor = ArgumentCaptor.forClass(Prompt.class);
         verify(chatModel).call(captor.capture());
@@ -176,7 +176,7 @@ class SpringAiLlmServiceTest {
 
         ToolCallingChatOptions options = (ToolCallingChatOptions) prompt.getOptions();
         assertTrue(options.getToolCallbacks() == null || options.getToolCallbacks().isEmpty(),
-            "context+history overload must advertise no tools");
+                "context+history overload must advertise no tools");
 
         assertEquals("Got it.", response.assistantText());
     }
@@ -185,14 +185,14 @@ class SpringAiLlmServiceTest {
     void historyOverloadSendsSystemPromptAndPriorHistoryWithoutContext() {
         ChatModel chatModel = mock(ChatModel.class);
         when(chatModel.call(any(Prompt.class)))
-            .thenReturn(stubResponse("Continuing.", List.of()));
+                .thenReturn(stubResponse("Continuing.", List.of()));
 
         AgentProviderRegistry registry = new AgentProviderRegistry(() -> Map.of("ollama", chatModel));
         LlmService service = new SpringAiLlmService(registry, converter);
 
         LlmResponse response = service.call(
-            config("ollama", "llama3.1"),
-            List.of(ConversationEntry.user("hi"), ConversationEntry.assistant("hello", List.of())));
+                config("ollama", "llama3.1"),
+                List.of(ConversationEntry.user("hi"), ConversationEntry.assistant("hello", List.of())));
 
         ArgumentCaptor<Prompt> captor = ArgumentCaptor.forClass(Prompt.class);
         verify(chatModel).call(captor.capture());

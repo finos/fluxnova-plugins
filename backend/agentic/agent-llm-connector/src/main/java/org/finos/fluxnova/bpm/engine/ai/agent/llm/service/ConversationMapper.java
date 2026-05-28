@@ -5,17 +5,12 @@ import org.finos.fluxnova.bpm.engine.ai.agent.model.AgentConfig;
 import org.finos.fluxnova.bpm.engine.shared.model.ConversationEntry;
 import org.finos.fluxnova.bpm.engine.shared.model.LlmResponse;
 import org.finos.fluxnova.bpm.engine.shared.model.ToolCallRequest;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.SystemMessage;
-import org.springframework.ai.chat.messages.ToolResponseMessage;
-import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.messages.*;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -62,21 +57,23 @@ class ConversationMapper {
         return switch (entry.role()) {
             case SYSTEM -> new SystemMessage(entry.content() == null ? "" : entry.content());
             case USER -> new UserMessage(entry.content() == null ? "" : entry.content());
-            case ASSISTANT -> new AssistantMessage(
-                entry.content() == null ? "" : entry.content(),
-                Map.of(),
-                entry.toolCalls().stream()
-                    .map(tc -> new AssistantMessage.ToolCall(
-                        tc.toolCallId(),
-                        "function",
-                        tc.toolId(),
-                        "{}"))
-                    .collect(Collectors.toList()));
-            case TOOL -> new ToolResponseMessage(List.of(
-                new ToolResponseMessage.ToolResponse(
-                    entry.toolCallId(),
-                    "",
-                    !entry.toolResult().containsKey("error") ? entry.toolResult().values().toString() : "error")));
+            case ASSISTANT -> AssistantMessage.builder()
+                    .content(entry.content() == null ? "" : entry.content())
+                    .toolCalls(entry.toolCalls().stream()
+                            .map(tc -> new AssistantMessage.ToolCall(
+                                    tc.toolCallId(),
+                                    "function",
+                                    tc.toolId(),
+                                    "{}"))
+                            .collect(Collectors.toList()))
+                    .build();
+            case TOOL -> ToolResponseMessage.builder()
+                    .responses(List.of(
+                            new ToolResponseMessage.ToolResponse(
+                                    entry.toolCallId(),
+                                    "",
+                                    !entry.toolResult().containsKey("error") ? entry.toolResult().values().toString() : "error")))
+                    .build();
         };
     }
 
@@ -90,16 +87,16 @@ class ConversationMapper {
 
         String text = assistant == null ? null : assistant.getText();
         List<AssistantMessage.ToolCall> springCalls =
-            assistant == null || assistant.getToolCalls() == null
-                ? List.of()
-                : assistant.getToolCalls();
+                assistant == null || assistant.getToolCalls() == null
+                        ? List.of()
+                        : assistant.getToolCalls();
 
         List<ToolCallRequest> toolCalls = springCalls.stream()
-            .map(tc -> new ToolCallRequest(tc.id(), tc.name()))
-            .collect(Collectors.toList());
+                .map(tc -> new ToolCallRequest(tc.id(), tc.name()))
+                .collect(Collectors.toList());
 
         List<ConversationEntry> updated = new ArrayList<>(
-            priorHistory == null ? List.of() : priorHistory);
+                priorHistory == null ? List.of() : priorHistory);
         updated.add(ConversationEntry.assistant(text, toolCalls));
 
         return new LlmResponse(text, toolCalls, updated);
