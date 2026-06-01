@@ -1,6 +1,7 @@
 package org.finos.fluxnova.bpm.engine.ai.agent.llm.service;
 
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolCatalogue;
+import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolEntry;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.ResolvedContext;
 import org.finos.fluxnova.bpm.engine.ai.agent.llm.provider.AgentProviderRegistry;
 import org.finos.fluxnova.bpm.engine.ai.agent.llm.tool.AgentToolSchemaConverter;
@@ -15,6 +16,8 @@ import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.tool.ToolCallback;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Spring AI implementation of {@link LlmService}.
@@ -61,13 +64,13 @@ public class SpringAiLlmService implements LlmService {
         ChatModel chatModel = providerRegistry.get(agentConfig.provider());
 
         ToolCallingChatOptions options = ToolCallingChatOptions.builder()
-            .model(agentConfig.model())
-            .internalToolExecutionEnabled(false)
-            .build();
+                .model(agentConfig.model())
+                .internalToolExecutionEnabled(false)
+                .build();
 
         ChatClient client = ChatClient.builder(chatModel)
-            .defaultOptions(options)
-            .build();
+                .defaultOptions(options)
+                .build();
 
         List<ConversationEntry> history = conversationHistory == null ? List.of() : conversationHistory;
         List<ToolCallback> toolCallbacks = catalogue == null ? List.of() : toolSchemaConverter.convert(catalogue);
@@ -78,8 +81,28 @@ public class SpringAiLlmService implements LlmService {
             spec = spec.toolCallbacks(toolCallbacks);
         }
 
-        ChatResponse response = spec.call().chatResponse();
+        ChatResponse springResponse = spec.call().chatResponse();
+        LlmResponse response = conversationMapper.toLlmResponse(springResponse, history);
 
-        return conversationMapper.toLlmResponse(response, history);
+        if (springResponse.hasToolCalls()) {
+
+            if (toolCallbacks.isEmpty()) {
+                throw new IllegalStateException("LLM made tool calls but no tools were provided in the request");
+            }
+
+            Set<String> availableTools = catalogue.tools().stream()
+                    .map(AgentToolEntry::elementId)
+                    .collect(Collectors.toSet());
+
+            response.toolCalls().forEach(toolCall -> {
+                if (!availableTools.contains(toolCall.toolId())) {
+                    throw new IllegalStateException("LLM called tool '" + toolCall.toolId() + "' which is not in the provided catalogue");
+                }
+            });
+
+
+        }
+
+        return response;
     }
 }

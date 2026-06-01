@@ -23,7 +23,6 @@ public class BpmnExtensionContextSpecBuilder implements AgentContextSpecBuilder 
 
         Element contextElement = extensionElements.elementNS(AgentModelConstants.AGENT_NS, "context");
         if (contextElement == null) {
-            // Context is empty, so adding empty list here adds all process variables to context
             return new AgentContextSpec(processDefinitionId, elementId, List.of());
         }
 

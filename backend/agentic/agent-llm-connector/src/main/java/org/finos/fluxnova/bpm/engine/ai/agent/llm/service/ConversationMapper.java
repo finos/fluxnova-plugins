@@ -7,7 +7,6 @@ import org.finos.fluxnova.bpm.engine.shared.model.LlmResponse;
 import org.finos.fluxnova.bpm.engine.shared.model.ToolCallRequest;
 import org.springframework.ai.chat.messages.*;
 import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.model.Generation;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,28 +36,29 @@ class ConversationMapper {
     List<Message> toSpringAi(AgentConfig config,
                              ResolvedContext context,
                              List<ConversationEntry> history) {
-        List<Message> out = new ArrayList<>();
+        List<Message> messages = new ArrayList<>();
         if (config.systemPrompt() != null && !config.systemPrompt().isBlank()) {
-            out.add(new SystemMessage(config.systemPrompt()));
+            messages.add(new SystemMessage(config.systemPrompt()));
         }
         if (history != null) {
             for (ConversationEntry entry : history) {
-                out.add(toSpringAi(entry));
+                messages.add(entryToMessage(entry));
             }
         }
         String contextBlock = formatContext(context);
         if (contextBlock != null) {
-            out.add(new SystemMessage(contextBlock));
+            messages.add(new SystemMessage(contextBlock));
         }
-        return out;
+        return messages;
     }
 
-    private Message toSpringAi(ConversationEntry entry) {
+    private Message entryToMessage(ConversationEntry entry) {
+        final String content = entry.content() == null ? "" : entry.content();
         return switch (entry.role()) {
-            case SYSTEM -> new SystemMessage(entry.content() == null ? "" : entry.content());
-            case USER -> new UserMessage(entry.content() == null ? "" : entry.content());
+            case SYSTEM -> new SystemMessage(content);
+            case USER -> new UserMessage(content);
             case ASSISTANT -> AssistantMessage.builder()
-                    .content(entry.content() == null ? "" : entry.content())
+                    .content(content)
                     .toolCalls(entry.toolCalls().stream()
                             .map(tc -> new AssistantMessage.ToolCall(
                                     tc.toolCallId(),
@@ -82,14 +82,10 @@ class ConversationMapper {
      * appends a corresponding {@link ConversationEntry} to the supplied prior history.
      */
     LlmResponse toLlmResponse(ChatResponse response, List<ConversationEntry> priorHistory) {
-        Generation generation = response.getResult();
-        AssistantMessage assistant = generation == null ? null : generation.getOutput();
+        AssistantMessage message = response.getResult().getOutput();
 
-        String text = assistant == null ? null : assistant.getText();
-        List<AssistantMessage.ToolCall> springCalls =
-                assistant == null || assistant.getToolCalls() == null
-                        ? List.of()
-                        : assistant.getToolCalls();
+        String text = message.getText();
+        List<AssistantMessage.ToolCall> springCalls = message.getToolCalls();
 
         List<ToolCallRequest> toolCalls = springCalls.stream()
                 .map(tc -> new ToolCallRequest(tc.id(), tc.name()))
@@ -108,7 +104,7 @@ class ConversationMapper {
         }
         StringBuilder sb = new StringBuilder();
         context.variables().forEach((name, value) -> {
-            if (sb.length() > 0) sb.append('\n');
+            if (!sb.isEmpty()) sb.append('\n');
             sb.append(name).append(" = ").append(format(value));
         });
         return sb.toString();

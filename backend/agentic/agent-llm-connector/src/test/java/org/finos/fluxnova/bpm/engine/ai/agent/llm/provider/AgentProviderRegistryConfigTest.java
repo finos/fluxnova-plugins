@@ -7,13 +7,13 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 class AgentProviderRegistryConfigTest {
 
     @Test
-    void derivesProviderIdFromBeanNameSuffix() {
+    void buildRegistry_whenBeanNameEndsChatModel_derivesProviderIdFromPrefix() {
         ChatModel ollama = mock(ChatModel.class);
         ChatModel huggingface = mock(ChatModel.class);
 
@@ -21,22 +21,23 @@ class AgentProviderRegistryConfigTest {
             Map.of("ollamaChatModel", ollama, "huggingfaceChatModel", huggingface),
             new AgentProviderProperties());
 
-        assertSame(ollama, result.get("ollama"));
-        assertSame(huggingface, result.get("huggingface"));
+        assertThat(result.get("ollama")).isSameAs(ollama);
+        assertThat(result.get("huggingface")).isSameAs(huggingface);
     }
 
     @Test
-    void ignoresBeansNotEndingInChatModel() {
+    void buildRegistry_whenBeanNameOmitsChatModelSuffix_beanIsExcluded() {
         ChatModel embedding = mock(ChatModel.class);
+
         Map<String, ChatModel> result = AgentProviderRegistryConfig.buildRegistry(
             Map.of("ollamaEmbeddingModel", embedding),
             new AgentProviderProperties());
 
-        assertFalse(result.containsKey("ollamaembedding"));
+        assertThat(result).doesNotContainKey("ollamaembedding");
     }
 
     @Test
-    void overridesTakePrecedenceOverAutoDiscovery() {
+    void buildRegistry_whenOverrideTargetsSameId_overrideTakesPrecedenceOverAutoDiscovery() {
         ChatModel autoBean = mock(ChatModel.class);
         ChatModel customBean = mock(ChatModel.class);
 
@@ -51,11 +52,11 @@ class AgentProviderRegistryConfigTest {
 
         Map<String, ChatModel> result = AgentProviderRegistryConfig.buildRegistry(beans, props);
 
-        assertSame(customBean, result.get("ollama"));
+        assertThat(result.get("ollama")).isSameAs(customBean);
     }
 
     @Test
-    void overridesAddNewProviderIds() {
+    void buildRegistry_whenOverrideReferencesCustomBeanName_registersUnderCustomProviderId() {
         ChatModel custom = mock(ChatModel.class);
         AgentProviderProperties props = new AgentProviderProperties();
         props.setProviderOverrides(Map.of("my-provider", "myCustomBean"));
@@ -64,6 +65,6 @@ class AgentProviderRegistryConfigTest {
             Map.of("myCustomBean", custom),
             props);
 
-        assertSame(custom, result.get("my-provider"));
+        assertThat(result.get("my-provider")).isSameAs(custom);
     }
 }

@@ -3,7 +3,9 @@ package org.finos.fluxnova.bpm.engine.ai.agent.llm.service;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolCatalogue;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolEntry;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.ResolvedContext;
+import org.finos.fluxnova.bpm.engine.ai.agent.llm.provider.AgentProviderProperties;
 import org.finos.fluxnova.bpm.engine.ai.agent.llm.provider.AgentProviderRegistry;
+import org.finos.fluxnova.bpm.engine.ai.agent.llm.provider.AgentProviderRegistryConfig;
 import org.finos.fluxnova.bpm.engine.ai.agent.llm.tool.AgentToolSchemaConverter;
 import org.finos.fluxnova.bpm.engine.ai.agent.model.AgentConfig;
 import org.finos.fluxnova.bpm.engine.shared.model.ConversationEntry;
@@ -18,12 +20,14 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.model.tool.ToolCallingChatOptions;
+import org.springframework.beans.factory.ListableBeanFactory;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -49,7 +53,7 @@ class SpringAiLlmServiceTest {
     }
 
     @Test
-    void fullCallSelectsChatModelAndPassesPromptWithToolsAndContext() {
+    void call_whenCatalogueAndContextAndHistoryProvided_sendsToolsContextAndHistoryInPrompt() {
         ChatModel chatModel = mock(ChatModel.class);
         when(chatModel.call(any(Prompt.class)))
                 .thenReturn(stubResponse("Working on it.", List.of(
@@ -70,29 +74,28 @@ class SpringAiLlmServiceTest {
         Prompt prompt = captor.getValue();
 
         List<Message> instructions = prompt.getInstructions();
-        assertEquals(3, instructions.size());
-        assertEquals(MessageType.SYSTEM, instructions.get(0).getMessageType());
-        assertEquals("You are an agent.", instructions.get(0).getText());
-        assertEquals(MessageType.USER, instructions.get(1).getMessageType());
-        assertEquals("Run a credit check", instructions.get(1).getText());
-        assertEquals(MessageType.SYSTEM, instructions.get(2).getMessageType());
-        assertTrue(instructions.get(2).getText().contains("customerId = c-1"));
+        assertThat(instructions).hasSize(3);
+        assertThat(instructions.get(0).getMessageType()).isEqualTo(MessageType.SYSTEM);
+        assertThat(instructions.get(0).getText()).isEqualTo("You are an agent.");
+        assertThat(instructions.get(1).getMessageType()).isEqualTo(MessageType.USER);
+        assertThat(instructions.get(1).getText()).isEqualTo("Run a credit check");
+        assertThat(instructions.get(2).getMessageType()).isEqualTo(MessageType.SYSTEM);
+        assertThat(instructions.get(2).getText()).contains("customerId = c-1");
 
         ToolCallingChatOptions options = (ToolCallingChatOptions) prompt.getOptions();
-        assertEquals("llama3.1", options.getModel());
-        assertEquals(Boolean.FALSE, options.getInternalToolExecutionEnabled());
+        assertThat(options.getModel()).isEqualTo("llama3.1");
+        assertThat(options.getInternalToolExecutionEnabled()).isEqualTo(Boolean.FALSE);
+        assertThat(options.getToolCallbacks()).hasSize(1);
+        assertThat(options.getToolCallbacks().get(0).getToolDefinition().name()).isEqualTo("creditScoreCheck");
 
-        assertEquals(1, options.getToolCallbacks().size());
-        assertEquals("creditScoreCheck", options.getToolCallbacks().get(0).getToolDefinition().name());
-
-        assertEquals("Working on it.", response.assistantText());
-        assertEquals(1, response.toolCalls().size());
-        assertEquals("creditScoreCheck", response.toolCalls().get(0).toolId());
-        assertEquals(2, response.updatedHistory().size());
+        assertThat(response.assistantText()).isEqualTo("Working on it.");
+        assertThat(response.toolCalls()).hasSize(1);
+        assertThat(response.toolCalls().get(0).toolId()).isEqualTo("creditScoreCheck");
+        assertThat(response.updatedHistory()).hasSize(2);
     }
 
     @Test
-    void emptyToolCallListSignalsDone() {
+    void call_whenLlmReturnsNoToolCalls_responseHasEmptyToolCallList() {
         ChatModel chatModel = mock(ChatModel.class);
         when(chatModel.call(any(Prompt.class)))
                 .thenReturn(stubResponse("All checks complete.", List.of()));
@@ -106,21 +109,22 @@ class SpringAiLlmServiceTest {
                 new ResolvedContext(Map.of()),
                 List.of());
 
-        assertTrue(response.toolCalls().isEmpty());
-        assertEquals("All checks complete.", response.assistantText());
+        assertThat(response.toolCalls()).isEmpty();
+        assertThat(response.assistantText()).isEqualTo("All checks complete.");
     }
 
     @Test
-    void unknownProviderRaisesError() {
+    void call_whenProviderNotRegistered_throwsIllegalStateException() {
         AgentProviderRegistry registry = new AgentProviderRegistry(Map::of);
         LlmService service = new SpringAiLlmService(registry, converter);
 
-        assertThrows(IllegalStateException.class, () -> service.call(
-                config("huggingface", "mistral-7b"), catalogue(), new ResolvedContext(Map.of()), List.of()));
+        assertThatThrownBy(() -> service.call(
+                config("huggingface", "mistral-7b"), catalogue(), new ResolvedContext(Map.of()), List.of()))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     @Test
-    void configOnlyOverloadSendsSystemPromptWithNoToolsOrContext() {
+    void call_whenOnlyConfigProvided_sendsOnlySystemPromptWithNoToolsOrContext() {
         ChatModel chatModel = mock(ChatModel.class);
         when(chatModel.call(any(Prompt.class)))
                 .thenReturn(stubResponse("Hello!", List.of()));
@@ -135,20 +139,23 @@ class SpringAiLlmServiceTest {
         Prompt prompt = captor.getValue();
 
         List<Message> instructions = prompt.getInstructions();
-        assertEquals(1, instructions.size(), "only the system prompt should be sent");
-        assertEquals(MessageType.SYSTEM, instructions.get(0).getMessageType());
-        assertEquals("You are an agent.", instructions.get(0).getText());
+        assertThat(instructions)
+                .as("only the system prompt should be sent")
+                .hasSize(1);
+        assertThat(instructions.get(0).getMessageType()).isEqualTo(MessageType.SYSTEM);
+        assertThat(instructions.get(0).getText()).isEqualTo("You are an agent.");
 
         ToolCallingChatOptions options = (ToolCallingChatOptions) prompt.getOptions();
-        assertTrue(options.getToolCallbacks() == null || options.getToolCallbacks().isEmpty(),
-                "no tool callbacks expected on the config-only overload");
+        assertThat(options.getToolCallbacks())
+                .as("no tool callbacks expected on the config-only overload")
+                .isNullOrEmpty();
 
-        assertEquals("Hello!", response.assistantText());
-        assertEquals(1, response.updatedHistory().size());
+        assertThat(response.assistantText()).isEqualTo("Hello!");
+        assertThat(response.updatedHistory()).hasSize(1);
     }
 
     @Test
-    void contextHistoryOverloadInjectsContextWithoutTools() {
+    void call_whenContextAndHistoryProvidedWithoutCatalogue_includesContextMessageWithoutTools() {
         ChatModel chatModel = mock(ChatModel.class);
         when(chatModel.call(any(Prompt.class)))
                 .thenReturn(stubResponse("Got it.", List.of()));
@@ -168,21 +175,42 @@ class SpringAiLlmServiceTest {
 
         // [system, user, context-system]
         List<Message> instructions = prompt.getInstructions();
-        assertEquals(3, instructions.size());
-        assertEquals(MessageType.SYSTEM, instructions.get(0).getMessageType());
-        assertEquals(MessageType.USER, instructions.get(1).getMessageType());
-        assertEquals(MessageType.SYSTEM, instructions.get(2).getMessageType());
-        assertTrue(instructions.get(2).getText().contains("customerId = c-7"));
+        assertThat(instructions).hasSize(3);
+        assertThat(instructions.get(0).getMessageType()).isEqualTo(MessageType.SYSTEM);
+        assertThat(instructions.get(1).getMessageType()).isEqualTo(MessageType.USER);
+        assertThat(instructions.get(2).getMessageType()).isEqualTo(MessageType.SYSTEM);
+        assertThat(instructions.get(2).getText()).contains("customerId = c-7");
 
         ToolCallingChatOptions options = (ToolCallingChatOptions) prompt.getOptions();
-        assertTrue(options.getToolCallbacks() == null || options.getToolCallbacks().isEmpty(),
-                "context+history overload must advertise no tools");
+        assertThat(options.getToolCallbacks())
+                .as("context+history overload must advertise no tools")
+                .isNullOrEmpty();
 
-        assertEquals("Got it.", response.assistantText());
+        assertThat(response.assistantText()).isEqualTo("Got it.");
     }
 
     @Test
-    void historyOverloadSendsSystemPromptAndPriorHistoryWithoutContext() {
+    void call_whenProviderRegisteredViaOverride_routesCallToCustomChatModel() {
+        ChatModel customModel = mock(ChatModel.class);
+        when(customModel.call(any(Prompt.class)))
+                .thenReturn(stubResponse("Done.", List.of()));
+
+        // Simulates: fluxnova.ai.agent.provider-overrides.my-model=myCustomChatModelBean
+        ListableBeanFactory beanFactory = mock(ListableBeanFactory.class);
+        when(beanFactory.getBeansOfType(ChatModel.class))
+                .thenReturn(Map.of("myCustomChatModelBean", customModel));
+        AgentProviderRegistry registry = AgentProviderRegistryConfig.build(
+                beanFactory, propertiesWithOverride("my-model", "myCustomChatModelBean"));
+        LlmService service = new SpringAiLlmService(registry, converter);
+
+        LlmResponse response = service.call(config("my-model", "custom-v1"));
+
+        verify(customModel).call(any(Prompt.class));
+        assertThat(response.assistantText()).isEqualTo("Done.");
+    }
+
+    @Test
+    void call_whenOnlyHistoryProvided_sendsSystemPromptAndHistoryWithoutContextMessage() {
         ChatModel chatModel = mock(ChatModel.class);
         when(chatModel.call(any(Prompt.class)))
                 .thenReturn(stubResponse("Continuing.", List.of()));
@@ -199,12 +227,55 @@ class SpringAiLlmServiceTest {
         List<Message> instructions = captor.getValue().getInstructions();
 
         // [system prompt, user, assistant] — no trailing context message
-        assertEquals(3, instructions.size());
-        assertEquals(MessageType.SYSTEM, instructions.get(0).getMessageType());
-        assertEquals(MessageType.USER, instructions.get(1).getMessageType());
-        assertEquals(MessageType.ASSISTANT, instructions.get(2).getMessageType());
+        assertThat(instructions).hasSize(3);
+        assertThat(instructions.get(0).getMessageType()).isEqualTo(MessageType.SYSTEM);
+        assertThat(instructions.get(1).getMessageType()).isEqualTo(MessageType.USER);
+        assertThat(instructions.get(2).getMessageType()).isEqualTo(MessageType.ASSISTANT);
 
-        assertEquals("Continuing.", response.assistantText());
-        assertEquals(3, response.updatedHistory().size());
+        assertThat(response.assistantText()).isEqualTo("Continuing.");
+        assertThat(response.updatedHistory()).hasSize(3);
+    }
+
+    @Test
+    void call_whenLlmRequestsNonExistingTool_throwIllegalStateException() {
+        ChatModel chatModel = mock(ChatModel.class);
+        when(chatModel.call(any(Prompt.class)))
+                .thenReturn(stubResponse("I need to check the credit score.", List.of(
+                        new AssistantMessage.ToolCall("call-x", "function", "hallucinatedTool", "{}"))));
+        ;
+
+        AgentProviderRegistry registry = new AgentProviderRegistry(() -> Map.of("ollama", chatModel));
+        LlmService service = new SpringAiLlmService(registry, converter);
+
+        assertThatThrownBy(() -> service.call(
+                config("ollama", "llama3.1"),
+                catalogue(), new ResolvedContext(Map.of()), List.of()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("LLM called tool 'hallucinatedTool' which is not in the provided catalogue");
+    }
+
+    @Test
+    void call_whenLlmRequestsToolWhenNoCatalogueProvided_throwIllegalStateException() {
+        ChatModel chatModel = mock(ChatModel.class);
+        when(chatModel.call(any(Prompt.class)))
+                .thenReturn(stubResponse("I need to check the credit score.", List.of(
+                        new AssistantMessage.ToolCall("call-x", "function", "hallucinatedTool", "{}"))));
+        ;
+
+        AgentProviderRegistry registry = new AgentProviderRegistry(() -> Map.of("ollama", chatModel));
+        LlmService service = new SpringAiLlmService(registry, converter);
+
+        assertThatThrownBy(() -> service.call(
+                config("ollama", "llama3.1"),
+                new ResolvedContext(Map.of()), List.of()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("LLM made tool calls but no tools were provided in the request");
+    }
+
+
+    private static AgentProviderProperties propertiesWithOverride(String providerId, String beanName) {
+        AgentProviderProperties props = new AgentProviderProperties();
+        props.setProviderOverrides(Map.of(providerId, beanName));
+        return props;
     }
 }

@@ -14,7 +14,7 @@ import static org.mockito.Mockito.when;
 class AgentProviderEnginePluginTest {
 
     @Test
-    void preInit_registersParseListenerInCustomPostBPMNParseListeners() {
+    void preInit_whenNoExistingListeners_createsNewListWithParseListener() {
         AgentProviderRegistry registry = mock(AgentProviderRegistry.class);
         AgentProviderEnginePlugin plugin = new AgentProviderEnginePlugin(registry);
         ProcessEngineConfigurationImpl config = mock(ProcessEngineConfigurationImpl.class);
@@ -30,7 +30,7 @@ class AgentProviderEnginePluginTest {
     }
 
     @Test
-    void preInit_appendsToExistingListeners() {
+    void preInit_whenListenersAlreadyConfigured_appendsParseListenerToExistingList() {
         AgentProviderRegistry registry = mock(AgentProviderRegistry.class);
         AgentProviderEnginePlugin plugin = new AgentProviderEnginePlugin(registry);
         ProcessEngineConfigurationImpl config = mock(ProcessEngineConfigurationImpl.class);

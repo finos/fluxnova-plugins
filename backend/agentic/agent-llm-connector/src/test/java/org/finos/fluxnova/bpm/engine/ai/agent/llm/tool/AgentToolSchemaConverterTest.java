@@ -10,14 +10,15 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class AgentToolSchemaConverterTest {
 
     private final AgentToolSchemaConverter converter = new AgentToolSchemaConverter();
 
     @Test
-    void emitsOneCallbackPerToolWithEmptyObjectSchema() {
+    void convert_whenCatalogueHasSingleTool_returnsOneCallbackWithEmptyObjectSchema() {
         AgentToolEntry tool = new AgentToolEntry(
             "creditScoreCheck", "Credit Score Check",
             "Retrieves the credit score for the customer.",
@@ -27,14 +28,14 @@ class AgentToolSchemaConverterTest {
 
         List<ToolCallback> callbacks = converter.convert(catalogue);
 
-        assertEquals(1, callbacks.size());
+        assertThat(callbacks).hasSize(1);
         ToolDefinition def = callbacks.get(0).getToolDefinition();
-        assertEquals("creditScoreCheck", def.name());
-        assertEquals("{\"type\":\"object\",\"properties\":{}}", def.inputSchema());
+        assertThat(def.name()).isEqualTo("creditScoreCheck");
+        assertThat(def.inputSchema()).isEqualTo("{\"type\":\"object\",\"properties\":{}}");
     }
 
     @Test
-    void descriptionIncludesNameDescriptionReadsAndWrites() {
+    void buildDescription_whenToolHasAllFields_includesNameDescriptionReadsAndWrites() {
         AgentToolEntry tool = new AgentToolEntry(
             "creditScoreCheck", "Credit Score Check",
             "Retrieves the credit score for the customer.",
@@ -43,16 +44,15 @@ class AgentToolSchemaConverterTest {
 
         String description = AgentToolSchemaConverter.buildDescription(tool);
 
-        assertTrue(description.contains("Credit Score Check"));
-        assertTrue(description.contains("Retrieves the credit score for the customer."));
-        assertTrue(description.contains("reads: [customerId, applicationId]"),
-            () -> "expected reads in description, got: " + description);
-        assertTrue(description.contains("writes: [creditScore]"),
-            () -> "expected writes in description, got: " + description);
+        assertThat(description)
+            .contains("Credit Score Check")
+            .contains("Retrieves the credit score for the customer.")
+            .contains("reads: [customerId, applicationId]")
+            .contains("writes: [creditScore]");
     }
 
     @Test
-    void descriptionOmitsEmptyReadsAndWritesSections() {
+    void buildDescription_whenReadsAndWritesAreEmpty_omitsReadWriteSections() {
         AgentToolEntry tool = new AgentToolEntry(
             "noOp", "No-Op",
             "Does nothing useful.",
@@ -60,17 +60,19 @@ class AgentToolSchemaConverterTest {
 
         String description = AgentToolSchemaConverter.buildDescription(tool);
 
-        assertFalse(description.contains("reads"));
-        assertFalse(description.contains("writes"));
+        assertThat(description)
+            .doesNotContain("reads")
+            .doesNotContain("writes");
     }
 
     @Test
-    void callbackRefusesInvocation() {
+    void convert_whenCallbackIsInvoked_throwsIllegalStateException() {
         AgentToolEntry tool = new AgentToolEntry(
             "creditScoreCheck", "Credit Score Check", "desc", Set.of(), Set.of());
         ToolCallback callback = converter.convert(
             new AgentToolCatalogue("proc-1", "agent-1", List.of(tool))).get(0);
 
-        assertThrows(IllegalStateException.class, () -> callback.call("{}"));
+        assertThatThrownBy(() -> callback.call("{}"))
+            .isInstanceOf(IllegalStateException.class);
     }
 }

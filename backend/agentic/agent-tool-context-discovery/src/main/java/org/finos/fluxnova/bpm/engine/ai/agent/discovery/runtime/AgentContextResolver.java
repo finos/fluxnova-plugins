@@ -14,8 +14,6 @@ import static java.util.stream.Collectors.toSet;
 
 public class AgentContextResolver {
 
-    private static final String AGENT_VAR_PREFIX = "_agent";
-
     private final ObjectProvider<RuntimeService> runtimeService;
 
     public AgentContextResolver(ObjectProvider<RuntimeService> runtimeService) {
@@ -30,8 +28,7 @@ public class AgentContextResolver {
                 .collect(toSet());
 
         Map<String, Object> filtered = processVariables.entrySet().stream()
-                .filter(e -> !e.getKey().startsWith(AGENT_VAR_PREFIX)
-                        && (declared.isEmpty() || declared.contains(e.getKey())))
+                .filter(e -> declared.contains(e.getKey()))
                 .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
 
         return new ResolvedContext(filtered);

@@ -21,7 +21,7 @@ class AgentLlmOrchestratorAutoConfigurationTest {
         .withConfiguration(AutoConfigurations.of(AgentLlmOrchestratorAutoConfiguration.class));
 
     @Test
-    void wiresAllBeansWhenChatModelPresent() {
+    void contextLoads_whenChatModelBeanPresent_registersAllCoreBeans() {
         runner.withUserConfiguration(ChatModelConfig.class).run(context -> {
             assertThat(context).hasSingleBean(AgentProviderRegistry.class);
             assertThat(context).hasSingleBean(AgentToolSchemaConverter.class);
@@ -33,14 +33,14 @@ class AgentLlmOrchestratorAutoConfigurationTest {
     }
 
     @Test
-    void wiresAgentProviderEnginePluginWhenChatModelPresent() {
+    void contextLoads_whenChatModelBeanPresent_registersEnginePlugin() {
         runner.withUserConfiguration(ChatModelConfig.class).run(context -> {
             assertThat(context).hasSingleBean(AgentProviderEnginePlugin.class);
         });
     }
 
     @Test
-    void activatesWithoutChatModelBeanAndFailsAtCallTime() {
+    void contextLoads_whenNoChatModelBean_contextStartsWithEmptyProviderRegistry() {
         runner.run(context -> {
             assertThat(context).hasSingleBean(AgentProviderRegistry.class);
             assertThat(context).hasSingleBean(LlmService.class);
@@ -50,14 +50,8 @@ class AgentLlmOrchestratorAutoConfigurationTest {
         });
     }
 
-    /**
-     * Reproduces the real-world failure: when ChatModel beans come from another
-     * auto-configuration (as Spring AI starters provide them), @ConditionalOnBean
-     * evaluates before the provider auto-config runs, so the entire configuration
-     * is skipped.
-     */
     @Test
-    void activatesWhenChatModelComesFromAnotherAutoConfiguration() {
+    void contextLoads_whenChatModelComesFromAnotherAutoConfiguration_registryResolvesProvider() {
         runner.withConfiguration(AutoConfigurations.of(SimulatedProviderAutoConfiguration.class))
             .run(context -> {
                 assertThat(context).hasSingleBean(AgentProviderRegistry.class);
