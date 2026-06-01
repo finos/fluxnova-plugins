@@ -4,7 +4,6 @@ import org.finos.fluxnova.bpm.engine.AuthorizationException;
 import org.finos.fluxnova.bpm.engine.ProcessEngineException;
 import org.finos.fluxnova.bpm.engine.RepositoryService;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AgentContextSpecBuilder;
-import org.springframework.beans.factory.ObjectProvider;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentContextSpec;
 import org.finos.fluxnova.bpm.engine.ai.agent.model.AgentConfig;
 import org.finos.fluxnova.bpm.engine.ai.agent.registry.AgentConfigRegistry;
@@ -15,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -169,6 +169,7 @@ class AgentContextSpecRegistryTest {
         ByteArrayInputStream throwingStream = new ByteArrayInputStream(
                 BPMN.getBytes(StandardCharsets.UTF_8)) {
             private boolean firstCloseDone = false;
+
             @Override
             public void close() throws IOException {
                 if (!firstCloseDone) {

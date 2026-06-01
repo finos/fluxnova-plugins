@@ -3,7 +3,6 @@ package org.finos.fluxnova.bpm.engine.ai.agent.registry;
 import org.finos.fluxnova.bpm.engine.AuthorizationException;
 import org.finos.fluxnova.bpm.engine.RepositoryService;
 import org.finos.fluxnova.bpm.engine.ai.agent.extract.AgentConfigExtractor;
-import org.springframework.beans.factory.ObjectProvider;
 import org.finos.fluxnova.bpm.engine.ai.agent.model.AgentConfig;
 import org.finos.fluxnova.bpm.engine.exception.NotFoundException;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -87,7 +87,7 @@ class AgentConfigRegistryTest {
         assertEquals(ELEMENT_ID, config.elementId());
         assertEquals("ollama", config.provider());
         assertEquals("llama3.1", config.model());
-                assertEquals(ELEMENT_ID, config.toolScopeElementId());
+        assertEquals(ELEMENT_ID, config.toolScopeElementId());
     }
 
     @Test

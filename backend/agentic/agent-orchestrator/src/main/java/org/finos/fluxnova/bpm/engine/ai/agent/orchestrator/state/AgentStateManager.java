@@ -23,11 +23,15 @@ public class AgentStateManager {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final TypeReference<List<ConversationEntry>> HISTORY_TYPE =
-            new TypeReference<>() {};
-    private static final TypeReference<Set<String>> PENDING_TYPE = new TypeReference<>() {};
+            new TypeReference<>() {
+            };
+    private static final TypeReference<Set<String>> PENDING_TYPE = new TypeReference<>() {
+    };
     private static final TypeReference<List<ToolResult>> RESULT_BUFFER_TYPE =
-            new TypeReference<>() {};
-    private static final TypeReference<List<ToolCallRequest>> QUEUE_TYPE = new TypeReference<>() {};
+            new TypeReference<>() {
+            };
+    private static final TypeReference<List<ToolCallRequest>> QUEUE_TYPE = new TypeReference<>() {
+    };
 
     private final ObjectProvider<RuntimeService> runtimeService;
 
