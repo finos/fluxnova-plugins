@@ -18,10 +18,8 @@ import java.util.stream.Collectors;
 /**
  * Central lookup for agent configurations attached to BPMN elements.
  *
- * <p><b>Usage:</b>
- * <pre>{@code
- * Optional<AgentConfig> config = registry.resolve(processDefinitionId, elementId);
- * }</pre>
+ * <p>Results are cached per process definition on first access and evicted on
+ * process undeployment.
  *
  * @see AgentConfig
  */

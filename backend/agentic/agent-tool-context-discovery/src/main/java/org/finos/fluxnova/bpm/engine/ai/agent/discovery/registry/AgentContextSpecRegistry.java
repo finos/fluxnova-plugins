@@ -20,6 +20,16 @@ import java.util.HashMap;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Central lookup for context specifications attached to BPMN scope elements.
+ *
+ * <p>Context specifications declare which process variables should be visible for a
+ * given scope element. Results are cached per process definition on first access and
+ * evicted on process undeployment.
+ *
+ * @see AgentContextSpec
+ * @see AgentContextSpecBuilder
+ */
 public class AgentContextSpecRegistry {
 
     private static final Logger LOG = LoggerFactory.getLogger(AgentContextSpecRegistry.class);
@@ -38,6 +48,19 @@ public class AgentContextSpecRegistry {
         this.builder = builder;
     }
 
+    /**
+     * Resolves the context specification for a specific BPMN element within a process
+     * definition. The result is cached after the first successful scan.
+     *
+     * <p>If the element carries no {@code <agent:context>} declaration, or if no
+     * {@link org.finos.fluxnova.bpm.engine.ai.agent.model.AgentConfig} is registered for
+     * the element, an empty optional is returned. Transient failures (e.g. IO errors
+     * reading the process model) are not cached, so a subsequent call may succeed.
+     *
+     * @param processDefinitionId the process definition to look up
+     * @param elementId           the BPMN element whose context specification is requested
+     * @return the context specification if one is declared for the element, otherwise empty
+     */
     public Optional<AgentContextSpec> resolve(String processDefinitionId, String elementId) {
         HashMap<String, AgentContextSpec> resultMap = cache.compute(processDefinitionId, (key, value) -> {
             HashMap<String, AgentContextSpec> currentMap = value != null ? value : new HashMap<>();
@@ -54,6 +77,12 @@ public class AgentContextSpecRegistry {
         return Optional.ofNullable(resultMap.get(elementId));
     }
 
+    /**
+     * Clears all cached context specifications.
+     *
+     * <p>Typically invoked on process undeployment to ensure stale entries are not
+     * served after redeployment.
+     */
     public void unregisterAll() {
         cache.clear();
     }

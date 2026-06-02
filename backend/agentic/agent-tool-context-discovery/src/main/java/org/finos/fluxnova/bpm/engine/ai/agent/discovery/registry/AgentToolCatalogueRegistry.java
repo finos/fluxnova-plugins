@@ -18,6 +18,17 @@ import java.util.HashMap;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Central lookup for tool catalogues associated with BPMN scope elements.
+ *
+ * <p>A tool catalogue lists the activities available as tools within a given scope.
+ * Catalogues are built lazily on first access and cached per process definition.
+ * Multiple scope elements pointing at the same {@code toolScopeElementId} share a
+ * single catalogue instance. The cache is evicted on process undeployment.
+ *
+ * @see AgentToolCatalogue
+ * @see AgentToolCatalogueBuilder
+ */
 public class AgentToolCatalogueRegistry {
 
     private static final Logger LOG = LoggerFactory.getLogger(AgentToolCatalogueRegistry.class);
@@ -48,6 +59,22 @@ public class AgentToolCatalogueRegistry {
         this.catalogueBuilder = catalogueBuilder;
     }
 
+    /**
+     * Resolves the tool catalogue for a BPMN element within a process definition.
+     *
+     * <p>The element's {@link org.finos.fluxnova.bpm.engine.ai.agent.model.AgentConfig}
+     * is consulted to determine the {@code toolScopeElementId}. The catalogue for that
+     * scope is then built (if not already cached) using the configured
+     * {@link AgentToolCatalogueBuilder}. Returns empty if no agent configuration exists
+     * for the element, if the scope activity cannot be found, or if the process definition
+     * is not accessible.
+     *
+     * @param processDefinitionId the process definition to look up
+     * @param agentElementId      the BPMN element id of the agent whose tool catalogue
+     *                            is requested
+     * @return the tool catalogue for the resolved scope, or empty if it could not be
+     * determined
+     */
     public Optional<AgentToolCatalogue> resolve(String processDefinitionId, String agentElementId) {
         // Check if this agent has already been resolved
         String toolScopeElementId = resolvedAgents.compute(processDefinitionId, (key, value) -> {
@@ -76,6 +103,12 @@ public class AgentToolCatalogueRegistry {
         return Optional.ofNullable(resultMap.get(toolScopeElementId));
     }
 
+    /**
+     * Clears all cached tool catalogues.
+     *
+     * <p>Typically invoked on process undeployment to ensure stale entries are not
+     * served after redeployment.
+     */
     public void unregisterAll() {
         scopeCache.clear();
         resolvedAgents.clear();

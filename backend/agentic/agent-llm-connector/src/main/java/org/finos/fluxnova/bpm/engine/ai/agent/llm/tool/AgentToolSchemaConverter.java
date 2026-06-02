@@ -26,6 +26,14 @@ public class AgentToolSchemaConverter {
 
     private static final String EMPTY_OBJECT_SCHEMA = "{\"type\":\"object\",\"properties\":{}}";
 
+    /**
+     * Converts all tools in the catalogue to Spring AI {@link ToolCallback} instances.
+     *
+     * @param catalogue the catalogue whose tools should be converted; must not be
+     *                  {@code null}
+     * @return a list of callbacks in the same order as {@code catalogue.tools()};
+     *         never {@code null}
+     */
     public List<ToolCallback> convert(AgentToolCatalogue catalogue) {
         return catalogue.tools().stream()
                 .map(this::toCallback)

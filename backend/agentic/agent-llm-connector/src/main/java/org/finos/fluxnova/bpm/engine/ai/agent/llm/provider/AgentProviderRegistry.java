@@ -5,6 +5,23 @@ import org.springframework.ai.chat.model.ChatModel;
 import java.util.Map;
 import java.util.function.Supplier;
 
+/**
+ * Resolves Spring AI {@link ChatModel} instances by provider id.
+ *
+ * <p>Provider ids are derived automatically from the bean names of {@link ChatModel}
+ * beans on the classpath: a bean named {@code ollamaChatModel} maps to provider id
+ * {@code "ollama"}. Explicit overrides can be declared via
+ * {@link AgentProviderProperties#getProviderOverrides()} to handle non-standard bean
+ * names or to remap a standard provider to a different bean instance.
+ *
+ * <p>The resolved registry is cached after the first successful lookup of a non-empty
+ * bean map. If the Spring context has not yet fully initialised when {@code get} is
+ * first called, the registry is not cached so that a subsequent call can resolve the
+ * real beans.
+ *
+ * @see AgentProviderProperties
+ * @see AgentProviderRegistryConfig
+ */
 public class AgentProviderRegistry {
 
     private final Supplier<Map<String, ChatModel>> supplier;
@@ -14,6 +31,14 @@ public class AgentProviderRegistry {
         this.supplier = supplier;
     }
 
+    /**
+     * Returns the {@link ChatModel} for the given provider id.
+     *
+     * @param providerId the provider id (e.g. {@code "ollama"}, {@code "openai"})
+     * @return the configured {@link ChatModel} for that provider
+     * @throws IllegalStateException if no {@link ChatModel} bean is mapped to
+     *                               {@code providerId}
+     */
     public ChatModel get(String providerId) {
         ChatModel model = resolve().get(providerId);
         if (model == null) {
@@ -26,6 +51,12 @@ public class AgentProviderRegistry {
         return model;
     }
 
+    /**
+     * Returns {@code true} if a {@link ChatModel} is mapped to the given provider id.
+     *
+     * @param providerId the provider id to check
+     * @return {@code true} if the provider is available, {@code false} otherwise
+     */
     public boolean has(String providerId) {
         return resolve().containsKey(providerId);
     }

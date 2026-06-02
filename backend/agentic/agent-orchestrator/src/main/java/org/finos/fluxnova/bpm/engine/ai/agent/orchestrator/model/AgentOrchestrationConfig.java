@@ -4,6 +4,24 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.finos.fluxnova.bpm.engine.impl.jobexecutor.JobHandlerConfiguration;
 
+/**
+ * Job handler configuration carrying the context for a single orchestration step.
+ *
+ * <p>Two distinct step types are represented by this configuration:
+ * <ul>
+ *   <li><b>Entry</b> — a new orchestration turn triggered on scope entry. Created via
+ *       {@link #forEntry()}; {@code toolResult} is {@code null}.</li>
+ *   <li><b>Tool completion</b> — a step triggered when a dispatched tool activity
+ *       finishes. Created via {@link #forToolCompletion(ToolResult)}; {@code toolResult}
+ *       carries the outcome of the completed tool.</li>
+ * </ul>
+ *
+ * <p>The configuration is serialised to and from JSON for persistence as a job handler
+ * configuration string.
+ *
+ * @param toolResult the completed tool result for a tool-completion step; {@code null}
+ *                   for an entry step
+ */
 public record AgentOrchestrationConfig(
         ToolResult toolResult
 ) implements JobHandlerConfiguration {

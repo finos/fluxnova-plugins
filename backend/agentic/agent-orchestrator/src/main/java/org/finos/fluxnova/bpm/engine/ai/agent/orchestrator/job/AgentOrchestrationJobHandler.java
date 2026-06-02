@@ -32,6 +32,25 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * Job handler that drives a single step of the scope execution loop.
+ *
+ * <p>Each execution of this handler represents one turn: it reads the current
+ * conversation history and any buffered tool results from scope-local variables,
+ * resolves the agent configuration and tool catalogue, calls the LLM, and then
+ * either dispatches the tool activities the LLM requested or signals completion
+ * of the scope if the LLM returned no tool calls.
+ *
+ * <p>Two entry paths are handled by a single handler type:
+ * <ul>
+ *   <li><b>Entry</b> — a fresh turn triggered on scope entry
+ *       ({@link AgentOrchestrationConfig#forEntry()}).</li>
+ *   <li><b>Tool completion</b> — a continuation triggered when a dispatched tool
+ *       activity finishes ({@link AgentOrchestrationConfig#forToolCompletion(ToolResult)}).
+ *       The handler accumulates results until all pending tools are complete, then
+ *       proceeds to the next LLM call.</li>
+ * </ul>
+ */
 public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrationConfig> {
 
     private static final Logger LOG = LoggerFactory.getLogger(AgentOrchestrationJobHandler.class);
