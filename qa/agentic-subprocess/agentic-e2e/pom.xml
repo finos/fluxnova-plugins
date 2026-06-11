@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project
+  xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
+>
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.finos.fluxnova.bpm</groupId>
+    <artifactId>fluxnova-engine-plugins-qa</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <relativePath>../../pom.xml</relativePath>
+  </parent>
+  <artifactId>fluxnova-engine-plugins-qa-agentic-e2e</artifactId>
+  <packaging>jar</packaging>
+  <name>Fluxnova Platform - engine plugins - QA - agentic near end-to-end integration tests</name>
+
+  <dependencies>
+    <!-- Production modules under test -->
+    <dependency>
+      <groupId>org.finos.fluxnova.bpm</groupId>
+      <artifactId>fluxnova-engine-plugins-ai-agent-orchestrator</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <!-- Real Spring AI Ollama provider -->
+    <dependency>
+      <groupId>org.springframework.ai</groupId>
+      <artifactId>spring-ai-ollama</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Fluxnova engine -->
+    <dependency>
+      <groupId>org.finos.fluxnova.bpm.springboot</groupId>
+      <artifactId>fluxnova-bpm-spring-boot-starter</artifactId>
+      <version>${fluxnova.version}</version>
+    </dependency>
+
+    <!-- Test infrastructure -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-jdbc</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.wiremock</groupId>
+      <artifactId>wiremock-standalone</artifactId>
+      <version>3.13.0</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <redirectTestOutputToFile>true</redirectTestOutputToFile>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>
