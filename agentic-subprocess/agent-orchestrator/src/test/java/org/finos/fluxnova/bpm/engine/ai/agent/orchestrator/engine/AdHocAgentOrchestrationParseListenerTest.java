@@ -98,6 +98,7 @@ class AdHocAgentOrchestrationParseListenerTest {
             when(extensionElements.elementNS(AgentModelConstants.AGENT_NS, "config"))
                     .thenReturn(agentConfigElement);
 
+            when(childTool.getProperty("type")).thenReturn(ActivityTypes.TASK_SERVICE);
             when(childTool.getIncomingTransitions()).thenReturn(Collections.emptyList());
             when(activity.getActivities()).thenReturn(List.of(childTool));
 
@@ -112,6 +113,7 @@ class AdHocAgentOrchestrationParseListenerTest {
             when(extensionElements.elementNS(AgentModelConstants.AGENT_NS, "config"))
                     .thenReturn(agentConfigElement);
 
+            when(childNonTool.getProperty("type")).thenReturn(ActivityTypes.TASK_SERVICE);
             when(incomingTransition.getSource()).thenReturn(childTool);
             when(childTool.getId()).thenReturn("childTool");
             when(activity.findActivity("childTool")).thenReturn(childTool);
@@ -130,6 +132,8 @@ class AdHocAgentOrchestrationParseListenerTest {
             when(extensionElements.elementNS(AgentModelConstants.AGENT_NS, "config"))
                     .thenReturn(agentConfigElement);
 
+            when(childTool.getProperty("type")).thenReturn(ActivityTypes.TASK_SERVICE);
+            when(childNonTool.getProperty("type")).thenReturn(ActivityTypes.TASK_SERVICE);
             when(incomingTransition.getSource()).thenReturn(childTool);
             when(childTool.getId()).thenReturn("childTool");
             when(activity.findActivity("childTool")).thenReturn(childTool);
