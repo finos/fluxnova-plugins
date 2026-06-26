@@ -93,6 +93,23 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
     public void execute(AgentOrchestrationConfig orchestratorConfig, ExecutionEntity execution,
             CommandContext commandContext, String tenantId) {
         String scopeExecutionId = execution.getId();
+        LOG.debug("execute() called for scope '{}', hasToolResult={}, isActive={}, " +
+                        "revision='{}', thread={}",
+                scopeExecutionId,
+                orchestratorConfig.hasToolResult(),
+                execution.isActive(),
+                execution.getRevision(),
+                Thread.currentThread().getName());
+
+        LOG.debug("execution hierarchy: id='{}', parentId='{}', superExecutionId='{}', " +
+                        "isScope={}, isActive={}, activityId='{}'",
+                execution.getId(),
+                execution.getParentId(),
+                execution.getSuperExecutionId(),
+                execution.isScope(),
+                execution.isActive(),
+                execution.getActivityId());
+
         RuntimeService runtimeService = execution.getProcessEngineServices().getRuntimeService();
         RepositoryService repositoryService = execution.getProcessEngineServices().getRepositoryService();
 
@@ -114,11 +131,15 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
 
             boolean allCompleted =
                     stateManager.completeToolCall(runtimeService, scopeExecutionId, result.toolCallId());
+            LOG.debug("completeToolCall() for '{}' returned allCompleted={}", result.toolCallId(), allCompleted);
+
             stateManager.appendToResultBuffer(runtimeService, scopeExecutionId, result);
 
             if (!allCompleted) {
+                LOG.debug("Not all tools completed for scope '{}', parking", scopeExecutionId);
                 return;
             }
+            LOG.debug("All tools completed for scope '{}', proceeding to LLM", scopeExecutionId);
             // All pending tools done — fall through to next LLM call
         }
 
@@ -156,14 +177,16 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
 
         LlmResponse response =
                 llmService.call(agentConfig, catalogue, context, history);
+        LOG.debug("LLM response for scope '{}': toolCalls={}", scopeExecutionId, response.toolCalls());
         stateManager.saveHistory(runtimeService, scopeExecutionId, response.updatedHistory());
 
         if (response.toolCalls().isEmpty()) {
+            LOG.debug("No tool calls returned, triggering termination for scope '{}'", scopeExecutionId);
             // Complete the process if tool call is empty
             AgentTerminationHandler.complete(runtimeService, scopeExecutionId);
             return;
         }
-
+        LOG.debug("Dispatching scope '{}': toolCalls='{}'", scopeExecutionId, response.toolCalls());
         dispatch(runtimeService, scopeExecutionId, catalogue, response.toolCalls(), execution, commandContext);
     }
 
@@ -184,6 +207,7 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
 
         for (ToolCallRequest tc : toolCalls) {
             pending.add(tc.toolCallId());
+            LOG.debug("dispatch() scope='{}' registering toolCallId='{}'", scopeExecutionId, tc.toolCallId());
             ToolInvocationResult result =
                     toolInvocationService.invoke(runtimeService, scopeExecutionId, catalogue, tc);
             if (!result.success()) {
@@ -200,6 +224,7 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
                 commandContext.getJobManager().insertAndHintJobExecutor(job);
             }
         }
+        LOG.debug("dispatch() scope='{}' saving pending set={}", scopeExecutionId, pending);
         stateManager.savePendingToolCalls(runtimeService, scopeExecutionId, pending);
     }
 

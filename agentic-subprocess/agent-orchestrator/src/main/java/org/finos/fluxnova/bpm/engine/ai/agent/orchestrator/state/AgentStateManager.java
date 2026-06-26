@@ -7,6 +7,9 @@ import org.finos.fluxnova.bpm.engine.RuntimeService;
 import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.model.ToolResult;
 import org.finos.fluxnova.bpm.engine.shared.model.ConversationEntry;
 import org.finos.fluxnova.bpm.engine.shared.model.ToolCallRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -33,6 +36,8 @@ import java.util.Set;
  * buffer can be flushed and the next step triggered.
  */
 public class AgentStateManager {
+
+    private static final Logger LOG = LoggerFactory.getLogger(AgentStateManager.class);
 
     private static final String VAR_CONVERSATION_HISTORY = "_agentConversationHistory";
     private static final String VAR_PENDING_TOOL_CALLS = "_agentPendingToolCalls";
@@ -118,8 +123,12 @@ public class AgentStateManager {
      */
     public boolean completeToolCall(RuntimeService runtimeService, String executionId, String toolCallId) {
         Set<String> pending = loadPendingToolCalls(runtimeService, executionId);
+        LOG.debug("completeToolCall() scope='{}' removing='{}' pendingBefore={}",
+                executionId, toolCallId, pending);
         pending.remove(toolCallId);
         savePendingToolCalls(runtimeService, executionId, pending);
+        LOG.debug("completeToolCall() scope='{}' pendingAfter={} allCompleted={}",
+                executionId, pending, pending.isEmpty());
         return pending.isEmpty();
     }
 
