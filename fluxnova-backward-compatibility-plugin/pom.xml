@@ -19,7 +19,7 @@
     <java.version>21</java.version>
     <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <spring.boot.version>4.0.5</spring.boot.version>
+    <spring.boot.version>4.1.0</spring.boot.version>
     <slf4j.version>2.0.17</slf4j.version>
     <apache.commons.version>3.20.0</apache.commons.version>
     <skipTests>false</skipTests>
