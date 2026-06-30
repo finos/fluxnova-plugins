@@ -11,11 +11,15 @@
 
     <modules>
         <module>agentic</module>
+        <module>shared</module>
+        <module>agentic-subprocess</module>
     </modules>
     <properties>
+        <fluxnova.version>3.0.0-SNAPSHOT</fluxnova.version>
         <java.version>21</java.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
+        <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <!-- Dependency Versions -->
         <spring-boot.version>3.5.8</spring-boot.version>
@@ -26,6 +30,7 @@
         <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
         <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
         <flatten-maven-plugin.version>1.5.0</flatten-maven-plugin.version>
+        <spring-ai.version>1.1.6</spring-ai.version>
     </properties>
     <dependencyManagement>
         <dependencies>
@@ -33,7 +38,7 @@
             <dependency>
                 <groupId>org.finos.fluxnova.bpm</groupId>
                 <artifactId>fluxnova-bom</artifactId>
-                <version>2.0.0</version>
+                <version>${fluxnova.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -43,6 +48,13 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
                 <version>3.5.8</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
