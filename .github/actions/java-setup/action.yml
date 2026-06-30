@@ -1,0 +1,29 @@
+name: "Java setup"
+description: "Common steps for Java setup"
+runs:
+  using: "composite"
+  steps:
+    - name: Set up JDK
+      uses: actions/setup-java@v5
+      with:
+        java-version: 21
+        distribution: 'temurin'
+        server-id: ossrh
+        server-username: ${{ env.CI_DEPLOY_USERNAME }}
+        server-password: ${{ env.CI_DEPLOY_PASSWORD }}
+
+    - name: Cache Maven dependencies
+      uses: actions/cache@v5
+      env:
+        cache-name: cache-mvn-deps
+      with:
+        path: ~/.m2/repository
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/pom.xml') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.cache-name }}-
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
+
+    - name: Check Java version
+      shell: bash
+      run: java -version

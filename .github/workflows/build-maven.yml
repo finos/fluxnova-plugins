@@ -1,0 +1,40 @@
+name: Build Plugin project
+
+env:
+  GH_TOKEN: ${{ secrets.GH_TOKEN }}
+  CI_DEPLOY_USERNAME: ${{ secrets.CI_DEPLOY_USERNAME }}
+  CI_DEPLOY_PASSWORD: ${{ secrets.CI_DEPLOY_PASSWORD }}
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.ref == 'refs/heads/main' && format('ci-default-branch-{0}-{1}', github.sha, github.workflow) ||
+    format('ci-pr-{0}-{1}', github.ref, github.workflow) }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Java setup
+        uses: ./.github/actions/java-setup
+
+      - name: Build
+        if: github.ref != 'refs/heads/main'
+        run: mvn -B -e clean install
+
+      - name: Deploy
+        if: github.ref == 'refs/heads/main'
+        run: mvn -B -e clean deploy -s ./settings.xml
