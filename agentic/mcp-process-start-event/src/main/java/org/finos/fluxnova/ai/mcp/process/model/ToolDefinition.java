@@ -13,6 +13,7 @@ public record ToolDefinition(
         String toolName,
         String description,
         List<ToolParameter> parameters,
+        List<ToolParameter> returnVariables,
         boolean propagateBusinessKey
 ) {
     /**
@@ -23,6 +24,7 @@ public record ToolDefinition(
         Objects.requireNonNull(toolName, "toolName cannot be null");
         Objects.requireNonNull(description, "description cannot be null");
         parameters = parameters != null ? List.copyOf(parameters) : List.of();
+        returnVariables = returnVariables != null ? List.copyOf(returnVariables) : List.of();
     }
 
 }

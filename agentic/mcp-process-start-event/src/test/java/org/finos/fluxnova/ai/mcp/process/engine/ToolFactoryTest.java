@@ -43,6 +43,7 @@ class ToolFactoryTest {
                 "GetWeather",
                 "Fetches weather data",
                 params,
+                List.of(),
                 true
         );
 
@@ -69,6 +70,7 @@ class ToolFactoryTest {
                 "SimpleTool",
                 "Simple tool",
                 List.of(),
+                List.of(),
                 false
         );
 
@@ -94,6 +96,7 @@ class ToolFactoryTest {
                 "Tool1",
                 "Description",
                 params,
+                List.of(),
                 true
         );
 
@@ -114,6 +117,7 @@ class ToolFactoryTest {
                 "process-1",
                 "Tool1",
                 "Description",
+                List.of(),
                 List.of(),
                 true
         );

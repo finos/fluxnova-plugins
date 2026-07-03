@@ -23,7 +23,7 @@
 
     <properties>
         <spring-ai.version>1.1.2</spring-ai.version>
-        <fluxnova.version>2.0.0-SNAPSHOT</fluxnova.version>
+        <version>${fluxnova.version}</version>
         <maven.compiler.release>21</maven.compiler.release>
     </properties>
 

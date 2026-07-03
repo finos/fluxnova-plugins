@@ -23,8 +23,10 @@ public class StartEventToolExtractor extends AbstractToolExtractor {
             String description = startEvent.getAttributeValueNs(MCP_NAMESPACE, "description");
             String propagateKeyStr = startEvent.getAttributeValueNs(MCP_NAMESPACE, "propagateBusinessKey");
             List<ToolParameter> parameters = extractParameters(startEvent);
+            List<ToolParameter> returnVariables = extractReturnVariables(startEvent);
 
-            return buildToolDefinition(processKey, toolName, description, propagateKeyStr, parameters);
+            LOG.debug("MCP - Number of return variables extracted: {}", returnVariables.size());
+            return buildToolDefinition(processKey, toolName, description, propagateKeyStr, parameters, returnVariables);
         } catch (Exception e) {
             LOG.error("MCP - Failed to extract tool definition from StartEvent in process: {}", processKey, e);
             return null;
@@ -64,9 +66,52 @@ public class StartEventToolExtractor extends AbstractToolExtractor {
         return parameters;
     }
 
+    private List<ToolParameter> extractReturnVariables(StartEvent startEvent) {
+        List<ToolParameter> returnVariables = new ArrayList<>();
+
+        ExtensionElements extensionElements = startEvent.getExtensionElements();
+        if (extensionElements == null) {
+            return returnVariables;
+        }
+
+        DomElement domExtensions = extensionElements.getDomElement();
+        DomElement returnVarsElement = findReturnVariablesElement(domExtensions);
+
+        if (returnVarsElement == null) {
+            return returnVariables;
+        }
+
+        List<DomElement> returnVarElements = returnVarsElement.getChildElements();
+        LOG.debug("MCP - Found {} return variable elements", returnVarElements.size());
+
+        for (DomElement returnVarElement : returnVarElements) {
+            if (!"returnVariable".equals(returnVarElement.getLocalName()) ||
+                    !MCP_NAMESPACE.equals(returnVarElement.getNamespaceURI())) {
+                continue;
+            }
+
+            String name = returnVarElement.getAttribute("paramName");
+            String type = returnVarElement.getAttribute("paramType");
+            addParameterIfValid(name, type, returnVariables);
+        }
+
+        LOG.debug("MCP - Total return variables extracted: {}", returnVariables.size());
+        return returnVariables;
+    }
+
     private DomElement findParametersElement(DomElement domExtensions) {
         for (DomElement child : domExtensions.getChildElements()) {
             if ("parameters".equals(child.getLocalName()) &&
+                    MCP_NAMESPACE.equals(child.getNamespaceURI())) {
+                return child;
+            }
+        }
+        return null;
+    }
+
+    private DomElement findReturnVariablesElement(DomElement domExtensions) {
+        for (DomElement child : domExtensions.getChildElements()) {
+            if ("returnVariables".equals(child.getLocalName()) &&
                     MCP_NAMESPACE.equals(child.getNamespaceURI())) {
                 return child;
             }

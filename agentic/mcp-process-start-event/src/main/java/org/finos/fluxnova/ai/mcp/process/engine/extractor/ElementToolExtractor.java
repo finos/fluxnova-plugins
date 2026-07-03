@@ -23,8 +23,11 @@ public class ElementToolExtractor extends AbstractToolExtractor {
             String description = startEvent.attributeNS(MCP_NS, "description");
             String propagateKeyStr = startEvent.attributeNS(MCP_NS, "propagateBusinessKey");
             List<ToolParameter> parameters = extractParameters(startEvent);
+            List<ToolParameter> returnVariables = extractReturnVariables(startEvent);
+            
+            LOG.debug("MCP - Extracted {} return variables for tool definition", returnVariables.size());
 
-            return buildToolDefinition(processKey, toolName, description, propagateKeyStr, parameters);
+            return buildToolDefinition(processKey, toolName, description, propagateKeyStr, parameters, returnVariables);
         } catch (Exception e) {
             LOG.error("MCP - Failed to extract tool definition from Element in process: {}", processKey, e);
             return null;
@@ -55,5 +58,31 @@ public class ElementToolExtractor extends AbstractToolExtractor {
 
         LOG.debug("MCP - Total parameters extracted: {}", parameters.size());
         return parameters;
+    }
+
+    private List<ToolParameter> extractReturnVariables(Element startEvent) {
+        List<ToolParameter> returnVariables = new ArrayList<>();
+
+        Element extensionElements = startEvent.element("extensionElements");
+        if (extensionElements == null) {
+            return returnVariables;
+        }
+
+        Element returnVarsElement = extensionElements.elementNS(MCP_NS, "returnVariables");
+        if (returnVarsElement == null) {
+            return returnVariables;
+        }
+
+        List<Element> returnVarElements = returnVarsElement.elementsNS(MCP_NS, "returnVariable");
+        LOG.debug("MCP - Found {} return variable elements", returnVarElements.size());
+
+        for (Element returnVarElement : returnVarElements) {
+            String name = returnVarElement.attribute("paramName");
+            String type = returnVarElement.attribute("paramType");
+            addParameterIfValid(name, type, returnVariables);
+        }
+
+        LOG.debug("MCP - Total return variables extracted: {}", returnVariables.size());
+        return returnVariables;
     }
 }

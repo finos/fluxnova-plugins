@@ -11,7 +11,8 @@ public abstract class AbstractToolExtractor {
     protected static final Logger LOG = LoggerFactory.getLogger(AbstractToolExtractor.class);
 
     protected ToolDefinition buildToolDefinition(String processKey, String toolName, String description,
-                                                 String propagateKeyStr, List<ToolParameter> parameters) {
+                                                 String propagateKeyStr, List<ToolParameter> parameters,
+                                                 List<ToolParameter> returnVariables) {
         boolean propagateBusinessKey = propagateKeyStr == null || Boolean.parseBoolean(propagateKeyStr);
 
         if (propagateBusinessKey) {
@@ -23,9 +24,11 @@ public abstract class AbstractToolExtractor {
                 toolName,
                 description != null ? description : "",
                 parameters,
+                returnVariables,
                 propagateBusinessKey);
 
-        LOG.debug("MCP - Extracted tool definition: {} for process: {}", toolName, processKey);
+        LOG.debug("MCP - Extracted tool definition: {} for process: {} with {} return variables", 
+                  toolName, processKey, returnVariables.size());
         return definition;
     }
 

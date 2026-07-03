@@ -226,4 +226,167 @@ class StartEventToolExtractorTest {
         assertNotNull(result);
         assertEquals(1, result.parameters().size()); // Only businessKey
     }
+
+    // ==================== Return Variables Parsing Tests (4.4) ====================
+
+    @Test
+    void shouldExtractZeroReturnVariablesWhenElementMissing() {
+        when(startEvent.getAttributeValueNs(MCP_NAMESPACE, "toolName")).thenReturn("MyTool");
+        when(startEvent.getExtensionElements()).thenReturn(extensionElements);
+        when(extensionElements.getDomElement()).thenReturn(domExtensions);
+
+        // Extension elements exist but no returnVariables element
+        when(domExtensions.getChildElements()).thenReturn(new ArrayList<>());
+
+        ToolDefinition result = extractor.extract(startEvent, "process-1");
+
+        assertNotNull(result);
+        assertEquals(0, result.returnVariables().size());
+    }
+
+    @Test
+    void shouldExtractSingleReturnVariable() {
+        when(startEvent.getAttributeValueNs(MCP_NAMESPACE, "toolName")).thenReturn("MyTool");
+        when(startEvent.getExtensionElements()).thenReturn(extensionElements);
+        when(extensionElements.getDomElement()).thenReturn(domExtensions);
+
+        // Setup return variables element
+        DomElement returnVarsElement = mock(DomElement.class);
+        when(returnVarsElement.getLocalName()).thenReturn("returnVariables");
+        when(returnVarsElement.getNamespaceURI()).thenReturn(MCP_NAMESPACE);
+
+        // Setup return variable
+        DomElement returnVarElement = mock(DomElement.class);
+        when(returnVarElement.getLocalName()).thenReturn("returnVariable");
+        when(returnVarElement.getNamespaceURI()).thenReturn(MCP_NAMESPACE);
+        when(returnVarElement.getAttribute("paramName")).thenReturn("orderId");
+        when(returnVarElement.getAttribute("paramType")).thenReturn("String");
+
+        List<DomElement> returnVarChildren = new ArrayList<>();
+        returnVarChildren.add(returnVarElement);
+        when(returnVarsElement.getChildElements()).thenReturn(returnVarChildren);
+
+        List<DomElement> extensionChildren = new ArrayList<>();
+        extensionChildren.add(returnVarsElement);
+        when(domExtensions.getChildElements()).thenReturn(extensionChildren);
+
+        ToolDefinition result = extractor.extract(startEvent, "order-process");
+
+        assertNotNull(result);
+        assertEquals(1, result.returnVariables().size());
+        assertEquals("orderId", result.returnVariables().get(0).name());
+        assertEquals("String", result.returnVariables().get(0).type());
+    }
+
+    @Test
+    void shouldExtractMultipleReturnVariables() {
+        when(startEvent.getAttributeValueNs(MCP_NAMESPACE, "toolName")).thenReturn("MyTool");
+        when(startEvent.getExtensionElements()).thenReturn(extensionElements);
+        when(extensionElements.getDomElement()).thenReturn(domExtensions);
+
+        // Setup return variables element
+        DomElement returnVarsElement = mock(DomElement.class);
+        when(returnVarsElement.getLocalName()).thenReturn("returnVariables");
+        when(returnVarsElement.getNamespaceURI()).thenReturn(MCP_NAMESPACE);
+
+        // Setup multiple return variables
+        DomElement returnVar1 = mock(DomElement.class);
+        when(returnVar1.getLocalName()).thenReturn("returnVariable");
+        when(returnVar1.getNamespaceURI()).thenReturn(MCP_NAMESPACE);
+        when(returnVar1.getAttribute("paramName")).thenReturn("orderId");
+        when(returnVar1.getAttribute("paramType")).thenReturn("String");
+
+        DomElement returnVar2 = mock(DomElement.class);
+        when(returnVar2.getLocalName()).thenReturn("returnVariable");
+        when(returnVar2.getNamespaceURI()).thenReturn(MCP_NAMESPACE);
+        when(returnVar2.getAttribute("paramName")).thenReturn("total");
+        when(returnVar2.getAttribute("paramType")).thenReturn("Double");
+
+        DomElement returnVar3 = mock(DomElement.class);
+        when(returnVar3.getLocalName()).thenReturn("returnVariable");
+        when(returnVar3.getNamespaceURI()).thenReturn(MCP_NAMESPACE);
+        when(returnVar3.getAttribute("paramName")).thenReturn("status");
+        when(returnVar3.getAttribute("paramType")).thenReturn("String");
+
+        List<DomElement> returnVarChildren = new ArrayList<>();
+        returnVarChildren.add(returnVar1);
+        returnVarChildren.add(returnVar2);
+        returnVarChildren.add(returnVar3);
+        when(returnVarsElement.getChildElements()).thenReturn(returnVarChildren);
+
+        List<DomElement> extensionChildren = new ArrayList<>();
+        extensionChildren.add(returnVarsElement);
+        when(domExtensions.getChildElements()).thenReturn(extensionChildren);
+
+        ToolDefinition result = extractor.extract(startEvent, "order-process");
+
+        assertNotNull(result);
+        assertEquals(3, result.returnVariables().size());
+        assertEquals("orderId", result.returnVariables().get(0).name());
+        assertEquals("total", result.returnVariables().get(1).name());
+        assertEquals("status", result.returnVariables().get(2).name());
+    }
+
+    @Test
+    void shouldSkipInvalidReturnVariables() {
+        when(startEvent.getAttributeValueNs(MCP_NAMESPACE, "toolName")).thenReturn("MyTool");
+        when(startEvent.getExtensionElements()).thenReturn(extensionElements);
+        when(extensionElements.getDomElement()).thenReturn(domExtensions);
+
+        // Setup return variables element
+        DomElement returnVarsElement = mock(DomElement.class);
+        when(returnVarsElement.getLocalName()).thenReturn("returnVariables");
+        when(returnVarsElement.getNamespaceURI()).thenReturn(MCP_NAMESPACE);
+
+        // Valid return variable
+        DomElement validVar = mock(DomElement.class);
+        when(validVar.getLocalName()).thenReturn("returnVariable");
+        when(validVar.getNamespaceURI()).thenReturn(MCP_NAMESPACE);
+        when(validVar.getAttribute("paramName")).thenReturn("orderId");
+        when(validVar.getAttribute("paramType")).thenReturn("String");
+
+        // Invalid return variable (null paramName)
+        DomElement invalidVar = mock(DomElement.class);
+        when(invalidVar.getLocalName()).thenReturn("returnVariable");
+        when(invalidVar.getNamespaceURI()).thenReturn(MCP_NAMESPACE);
+        when(invalidVar.getAttribute("paramName")).thenReturn(null);
+        when(invalidVar.getAttribute("paramType")).thenReturn("String");
+
+        List<DomElement> returnVarChildren = new ArrayList<>();
+        returnVarChildren.add(validVar);
+        returnVarChildren.add(invalidVar);
+        when(returnVarsElement.getChildElements()).thenReturn(returnVarChildren);
+
+        List<DomElement> extensionChildren = new ArrayList<>();
+        extensionChildren.add(returnVarsElement);
+        when(domExtensions.getChildElements()).thenReturn(extensionChildren);
+
+        ToolDefinition result = extractor.extract(startEvent, "order-process");
+
+        assertNotNull(result);
+        assertEquals(1, result.returnVariables().size());
+        assertEquals("orderId", result.returnVariables().get(0).name());
+    }
+
+    @Test
+    void shouldHandleEmptyReturnVariables() {
+        when(startEvent.getAttributeValueNs(MCP_NAMESPACE, "toolName")).thenReturn("MyTool");
+        when(startEvent.getExtensionElements()).thenReturn(extensionElements);
+        when(extensionElements.getDomElement()).thenReturn(domExtensions);
+
+        // Setup empty return variables element
+        DomElement returnVarsElement = mock(DomElement.class);
+        when(returnVarsElement.getLocalName()).thenReturn("returnVariables");
+        when(returnVarsElement.getNamespaceURI()).thenReturn(MCP_NAMESPACE);
+        when(returnVarsElement.getChildElements()).thenReturn(new ArrayList<>());
+
+        List<DomElement> extensionChildren = new ArrayList<>();
+        extensionChildren.add(returnVarsElement);
+        when(domExtensions.getChildElements()).thenReturn(extensionChildren);
+
+        ToolDefinition result = extractor.extract(startEvent, "order-process");
+
+        assertNotNull(result);
+        assertEquals(0, result.returnVariables().size());
+    }
 }
