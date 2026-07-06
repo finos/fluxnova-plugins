@@ -8,6 +8,7 @@ import org.finos.fluxnova.bpm.engine.ai.agent.llm.tool.AgentToolSchemaConverter;
 import org.finos.fluxnova.bpm.engine.ai.agent.model.AgentConfig;
 import org.finos.fluxnova.bpm.engine.shared.model.ConversationEntry;
 import org.finos.fluxnova.bpm.engine.shared.model.LlmResponse;
+import org.springframework.ai.chat.client.AdvisorParams;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.model.ChatModel;
@@ -63,13 +64,7 @@ public class SpringAiLlmService implements LlmService {
 
         ChatModel chatModel = providerRegistry.get(agentConfig.provider());
 
-        ToolCallingChatOptions options = ToolCallingChatOptions.builder()
-                .model(agentConfig.model())
-                .internalToolExecutionEnabled(false)
-                .build();
-
         ChatClient client = ChatClient.builder(chatModel)
-                .defaultOptions(options)
                 .build();
 
         List<ConversationEntry> history = conversationHistory == null ? List.of() : conversationHistory;

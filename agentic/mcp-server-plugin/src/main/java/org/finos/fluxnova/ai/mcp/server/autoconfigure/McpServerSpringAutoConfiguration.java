@@ -24,14 +24,14 @@ public class McpServerSpringAutoConfiguration {
     private static final Logger LOG = LoggerFactory.getLogger(McpServerSpringAutoConfiguration.class);
 
     @Bean
-    @ConditionalOnMissingBean
+    @ConditionalOnMissingBean(ToolRegistry.class)
     public ToolRegistry toolRegistry(McpSyncServer mcpServer, ObjectMapper objectMapper) {
         LOG.debug("MCP - Server - Auto-configuring ToolRegistry bean");
         return new ToolRegistry(mcpServer, objectMapper);
     }
 
     @Bean
-    @ConditionalOnMissingBean
+    @ConditionalOnMissingBean(McpServerFluxnovaPlugin.class)
     public McpServerFluxnovaPlugin fluxnovaMcpServerPlugin(ToolRegistry toolRegistry) {
         LOG.debug("MCP - Server - Auto-configuring FluxnovaMcpServerPlugin bean");
         return new McpServerFluxnovaPlugin(toolRegistry);

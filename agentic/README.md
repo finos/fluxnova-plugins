@@ -180,6 +180,6 @@ mvn clean install
 ### Requirements
 
 - Java 21+
-- Fluxnova BPM Engine 2.0.0+
-- Spring Boot 3.5.x
-- Spring AI 1.1.2
+- Fluxnova BPM Engine 3.0.0+
+- Spring Boot 4.0.x
+- Spring AI 2.0.x

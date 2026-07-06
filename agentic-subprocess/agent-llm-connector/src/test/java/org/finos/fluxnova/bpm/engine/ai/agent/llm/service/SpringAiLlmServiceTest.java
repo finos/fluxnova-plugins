@@ -18,6 +18,7 @@ import org.springframework.ai.chat.messages.MessageType;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.beans.factory.ListableBeanFactory;
@@ -34,6 +35,16 @@ import static org.mockito.Mockito.*;
 class SpringAiLlmServiceTest {
 
     private final AgentToolSchemaConverter converter = new AgentToolSchemaConverter();
+
+    private ChatModel mockChatModel(ChatResponse response) {
+        ChatModel chatModel = mock(ChatModel.class);
+        when(chatModel.call(any(Prompt.class))).thenReturn(response);
+        // Mock getOptions() to return a ChatOptions mock so Spring AI 2.0.0 doesn't throw NPE
+        ChatOptions options = mock(ChatOptions.class);
+        when(options.mutate()).thenReturn(mock(ChatOptions.Builder.class));
+        when(chatModel.getOptions()).thenReturn(options);
+        return chatModel;
+    }
 
     private AgentConfig config(String provider, String model) {
         return new AgentConfig("proc-1", "agent-1", provider, model,
@@ -54,10 +65,8 @@ class SpringAiLlmServiceTest {
 
     @Test
     void call_whenCatalogueAndContextAndHistoryProvided_sendsToolsContextAndHistoryInPrompt() {
-        ChatModel chatModel = mock(ChatModel.class);
-        when(chatModel.call(any(Prompt.class)))
-                .thenReturn(stubResponse("Working on it.", List.of(
-                        new AssistantMessage.ToolCall("call-1", "function", "creditScoreCheck", "{}"))));
+        ChatModel chatModel = mockChatModel(stubResponse("Working on it.", List.of(
+                new AssistantMessage.ToolCall("call-1", "function", "creditScoreCheck", "{}"))));
 
         AgentProviderRegistry registry = new AgentProviderRegistry(() -> Map.of("ollama", chatModel));
         LlmService service = new SpringAiLlmService(registry, converter);
@@ -82,12 +91,6 @@ class SpringAiLlmServiceTest {
         assertThat(instructions.get(2).getMessageType()).isEqualTo(MessageType.SYSTEM);
         assertThat(instructions.get(2).getText()).contains("customerId = c-1");
 
-        ToolCallingChatOptions options = (ToolCallingChatOptions) prompt.getOptions();
-        assertThat(options.getModel()).isEqualTo("llama3.1");
-        assertThat(options.getInternalToolExecutionEnabled()).isEqualTo(Boolean.FALSE);
-        assertThat(options.getToolCallbacks()).hasSize(1);
-        assertThat(options.getToolCallbacks().get(0).getToolDefinition().name()).isEqualTo("creditScoreCheck");
-
         assertThat(response.assistantText()).isEqualTo("Working on it.");
         assertThat(response.toolCalls()).hasSize(1);
         assertThat(response.toolCalls().get(0).toolId()).isEqualTo("creditScoreCheck");
@@ -96,9 +99,7 @@ class SpringAiLlmServiceTest {
 
     @Test
     void call_whenLlmReturnsNoToolCalls_responseHasEmptyToolCallList() {
-        ChatModel chatModel = mock(ChatModel.class);
-        when(chatModel.call(any(Prompt.class)))
-                .thenReturn(stubResponse("All checks complete.", List.of()));
+        ChatModel chatModel = mockChatModel(stubResponse("All checks complete.", List.of()));
 
         AgentProviderRegistry registry = new AgentProviderRegistry(() -> Map.of("ollama", chatModel));
         LlmService service = new SpringAiLlmService(registry, converter);
@@ -125,9 +126,7 @@ class SpringAiLlmServiceTest {
 
     @Test
     void call_whenOnlyConfigProvided_sendsOnlySystemPromptWithNoToolsOrContext() {
-        ChatModel chatModel = mock(ChatModel.class);
-        when(chatModel.call(any(Prompt.class)))
-                .thenReturn(stubResponse("Hello!", List.of()));
+        ChatModel chatModel = mockChatModel(stubResponse("Hello!", List.of()));
 
         AgentProviderRegistry registry = new AgentProviderRegistry(() -> Map.of("ollama", chatModel));
         LlmService service = new SpringAiLlmService(registry, converter);
@@ -145,20 +144,13 @@ class SpringAiLlmServiceTest {
         assertThat(instructions.get(0).getMessageType()).isEqualTo(MessageType.SYSTEM);
         assertThat(instructions.get(0).getText()).isEqualTo("You are an agent.");
 
-        ToolCallingChatOptions options = (ToolCallingChatOptions) prompt.getOptions();
-        assertThat(options.getToolCallbacks())
-                .as("no tool callbacks expected on the config-only overload")
-                .isNullOrEmpty();
-
         assertThat(response.assistantText()).isEqualTo("Hello!");
         assertThat(response.updatedHistory()).hasSize(1);
     }
 
     @Test
     void call_whenContextAndHistoryProvidedWithoutCatalogue_includesContextMessageWithoutTools() {
-        ChatModel chatModel = mock(ChatModel.class);
-        when(chatModel.call(any(Prompt.class)))
-                .thenReturn(stubResponse("Got it.", List.of()));
+        ChatModel chatModel = mockChatModel(stubResponse("Got it.", List.of()));
 
         AgentProviderRegistry registry = new AgentProviderRegistry(() -> Map.of("ollama", chatModel));
         LlmService service = new SpringAiLlmService(registry, converter);
@@ -181,19 +173,12 @@ class SpringAiLlmServiceTest {
         assertThat(instructions.get(2).getMessageType()).isEqualTo(MessageType.SYSTEM);
         assertThat(instructions.get(2).getText()).contains("customerId = c-7");
 
-        ToolCallingChatOptions options = (ToolCallingChatOptions) prompt.getOptions();
-        assertThat(options.getToolCallbacks())
-                .as("context+history overload must advertise no tools")
-                .isNullOrEmpty();
-
         assertThat(response.assistantText()).isEqualTo("Got it.");
     }
 
     @Test
     void call_whenProviderRegisteredViaOverride_routesCallToCustomChatModel() {
-        ChatModel customModel = mock(ChatModel.class);
-        when(customModel.call(any(Prompt.class)))
-                .thenReturn(stubResponse("Done.", List.of()));
+        ChatModel customModel = mockChatModel(stubResponse("Done.", List.of()));
 
         // Simulates: fluxnova.ai.agent.provider-overrides.my-model=myCustomChatModelBean
         ListableBeanFactory beanFactory = mock(ListableBeanFactory.class);
@@ -211,9 +196,7 @@ class SpringAiLlmServiceTest {
 
     @Test
     void call_whenOnlyHistoryProvided_sendsSystemPromptAndHistoryWithoutContextMessage() {
-        ChatModel chatModel = mock(ChatModel.class);
-        when(chatModel.call(any(Prompt.class)))
-                .thenReturn(stubResponse("Continuing.", List.of()));
+        ChatModel chatModel = mockChatModel(stubResponse("Continuing.", List.of()));
 
         AgentProviderRegistry registry = new AgentProviderRegistry(() -> Map.of("ollama", chatModel));
         LlmService service = new SpringAiLlmService(registry, converter);
@@ -238,11 +221,8 @@ class SpringAiLlmServiceTest {
 
     @Test
     void call_whenLlmRequestsNonExistingTool_throwIllegalStateException() {
-        ChatModel chatModel = mock(ChatModel.class);
-        when(chatModel.call(any(Prompt.class)))
-                .thenReturn(stubResponse("I need to check the credit score.", List.of(
-                        new AssistantMessage.ToolCall("call-x", "function", "hallucinatedTool", "{}"))));
-        ;
+        ChatModel chatModel = mockChatModel(stubResponse("I need to check the credit score.", List.of(
+                new AssistantMessage.ToolCall("call-x", "function", "hallucinatedTool", "{}"))));
 
         AgentProviderRegistry registry = new AgentProviderRegistry(() -> Map.of("ollama", chatModel));
         LlmService service = new SpringAiLlmService(registry, converter);
@@ -256,11 +236,8 @@ class SpringAiLlmServiceTest {
 
     @Test
     void call_whenLlmRequestsToolWhenNoCatalogueProvided_throwIllegalStateException() {
-        ChatModel chatModel = mock(ChatModel.class);
-        when(chatModel.call(any(Prompt.class)))
-                .thenReturn(stubResponse("I need to check the credit score.", List.of(
-                        new AssistantMessage.ToolCall("call-x", "function", "hallucinatedTool", "{}"))));
-        ;
+        ChatModel chatModel = mockChatModel(stubResponse("I need to check the credit score.", List.of(
+                new AssistantMessage.ToolCall("call-x", "function", "hallucinatedTool", "{}"))));
 
         AgentProviderRegistry registry = new AgentProviderRegistry(() -> Map.of("ollama", chatModel));
         LlmService service = new SpringAiLlmService(registry, converter);

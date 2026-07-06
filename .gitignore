@@ -3,7 +3,7 @@ target
 .classpath
 .project
 .settings
-
+.kiro
 .vscode
 *.iml
 *.sublime-project

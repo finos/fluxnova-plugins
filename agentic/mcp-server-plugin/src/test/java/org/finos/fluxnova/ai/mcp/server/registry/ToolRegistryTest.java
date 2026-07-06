@@ -147,7 +147,8 @@ class ToolRegistryTest {
 
         var tool = specCaptor.getValue().tool();
         assertNotNull(tool.inputSchema());
-        assertEquals("object", tool.inputSchema().type());
+        var schema = (Map<String, Object>) tool.inputSchema();
+        assertEquals("object", schema.get("type"));
     }
 
     @Test
@@ -197,9 +198,14 @@ class ToolRegistryTest {
 
         var tool = specCaptor.getValue().tool();
         assertNotNull(tool.inputSchema());
-        assertEquals("object", tool.inputSchema().type());
-        assertTrue(tool.inputSchema().properties().containsKey("field1"));
-        assertEquals(List.of("field1"), tool.inputSchema().required());
+        var schemaMap = (Map<String, Object>) tool.inputSchema();
+        assertEquals("object", schemaMap.get("type"));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> properties = (Map<String, Object>) schemaMap.get("properties");
+        assertTrue(properties.containsKey("field1"));
+        @SuppressWarnings("unchecked")
+        List<String> required = (List<String>) schemaMap.get("required");
+        assertEquals(List.of("field1"), required);
     }
 
     @Test
@@ -223,7 +229,11 @@ class ToolRegistryTest {
 
         var tool = specCaptor.getValue().tool();
         // Should use rawSchema, not parameters
-        assertTrue(tool.inputSchema().properties().containsKey("custom"));
-        assertFalse(tool.inputSchema().properties().containsKey("param1"));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> schemaMap = (Map<String, Object>) tool.inputSchema();
+        @SuppressWarnings("unchecked")
+        Map<String, Object> properties = (Map<String, Object>) schemaMap.get("properties");
+        assertTrue(properties.containsKey("custom"));
+        assertFalse(properties.containsKey("param1"));
     }
 }

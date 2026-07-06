@@ -153,11 +153,15 @@ public class ToolRegistry {
                 ? config.rawSchema()
                 : buildJsonSchema(config.parameters());
 
+        // Convert JsonSchema to Map for the Tool constructor
+        @SuppressWarnings("unchecked")
+        Map<String, Object> schemaMap = objectMapper.convertValue(schema, Map.class);
+
         return new Tool(
                 config.name(),
                 null,  // href - not used
                 config.description(),
-                schema,
+                schemaMap,
                 null,  // annotations - not used
                 null,  // _meta - not used
                 null   // additionalProperties - not used
@@ -166,6 +170,7 @@ public class ToolRegistry {
 
     /**
      * Builds a JSON schema for tool parameters.
+     * Converts BPMN semantic types (Date, DateTime, etc.) to valid JSON Schema types.
      */
     private JsonSchema buildJsonSchema(Map<String, ToolConfig.ParameterSpec> parameters) {
         if (parameters.isEmpty()) {
@@ -183,10 +188,39 @@ public class ToolRegistry {
         List<String> required = new ArrayList<>();
 
         parameters.forEach((name, spec) -> {
-            properties.put(name, Map.of(
-                    "type", spec.type(),
-                    "description", "Parameter: " + name
-            ));
+            Map<String, Object> property = new HashMap<>();
+            String type = spec.type();
+            
+            // Convert BPMN semantic types to valid JSON Schema types
+            switch (type) {
+                case "Date":
+                    property.put("type", "string");
+                    property.put("format", "date");
+                    break;
+                case "DateTime":
+                case "Timestamp":
+                    property.put("type", "string");
+                    property.put("format", "date-time");
+                    break;
+                case "Integer":
+                case "Long":
+                    property.put("type", "integer");
+                    break;
+                case "Double":
+                case "Float":
+                case "Decimal":
+                    property.put("type", "number");
+                    break;
+                case "Boolean":
+                    property.put("type", "boolean");
+                    break;
+                default:
+                    // String, Text, or any other type defaults to string
+                    property.put("type", "string");
+            }
+            
+            property.put("description", "Parameter: " + name);
+            properties.put(name, property);
 
             if (spec.required()) {
                 required.add(name);
@@ -209,11 +243,13 @@ public class ToolRegistry {
     private SyncToolSpecification buildToolSpecification(Tool tool, ToolConfig config) {
         return new SyncToolSpecification(
                 tool,
-                (exchange, arguments) -> {
+                (exchange, callToolRequest) -> {
                     try {
-                        LOG.debug("MCP - Executing tool '{}' with arguments: {}", config.name(), arguments);
+                        LOG.debug("MCP - Executing tool '{}' with request: {}", config.name(), callToolRequest);
 
-                        Map<String, Object> args = arguments != null ? arguments : Map.of();
+                        Map<String, Object> args = callToolRequest != null && callToolRequest.arguments() != null
+                                ? callToolRequest.arguments()
+                                : Map.of();
                         Object result = config.handler().execute(args);
 
                         String resultText = formatResult(result);
@@ -221,14 +257,18 @@ public class ToolRegistry {
                         LOG.debug("MCP - Tool '{}' executed successfully", config.name());
                         return new CallToolResult(
                                 List.of(new TextContent(resultText)),
-                                false  // isError
+                                false,   // isError
+                                null,    // metadata
+                                null     // additionalProperties
                         );
 
                     } catch (Exception e) {
                         LOG.error("MCP - Tool '{}' execution failed", config.name(), e);
                         return new CallToolResult(
                                 List.of(new TextContent("Error executing tool: " + e.getMessage())),
-                                true  // isError
+                                true,    // isError
+                                null,    // metadata
+                                null     // additionalProperties
                         );
                     }
                 }

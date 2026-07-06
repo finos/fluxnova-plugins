@@ -22,19 +22,8 @@
     </modules>
 
     <properties>
-        <spring-ai.version>1.1.2</spring-ai.version>
         <version>${fluxnova.version}</version>
         <maven.compiler.release>21</maven.compiler.release>
     </properties>
-
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>org.springframework.ai</groupId>
-                <artifactId>spring-ai-starter-mcp-server-webmvc</artifactId>
-                <version>${spring-ai.version}</version>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
 
 </project>
