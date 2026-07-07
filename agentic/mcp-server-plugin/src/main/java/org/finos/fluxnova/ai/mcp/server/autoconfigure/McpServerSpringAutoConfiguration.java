@@ -1,6 +1,5 @@
 package org.finos.fluxnova.ai.mcp.server.autoconfigure;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.server.McpSyncServer;
 import org.finos.fluxnova.ai.mcp.server.plugin.McpServerFluxnovaPlugin;
 import org.finos.fluxnova.ai.mcp.server.registry.ToolRegistry;
@@ -10,6 +9,7 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Spring Boot auto-configuration for the Fluxnova MCP Server Plugin.
