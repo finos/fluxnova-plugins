@@ -238,4 +238,68 @@ class AgentStateManagerTest {
                         assertEquals("tool3", loaded.get(1).toolId());
                 }
         }
+
+        @Nested
+        class OverflowHandling {
+
+                @Test
+                void saveHistory_largeHistory_storesAsBytes() {
+                        List<ConversationEntry> largeHistory = createLargeHistory(100);
+
+                        stateManager.saveHistory(runtimeService, EXECUTION_ID, largeHistory);
+
+                        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+                        verify(runtimeService).setVariableLocal(eq(EXECUTION_ID),
+                                        eq("_agentConversationHistory"), captor.capture());
+
+                        Object stored = captor.getValue();
+                        assertInstanceOf(byte[].class, stored);
+                }
+
+                @Test
+                void savePendingToolCalls_largeSet_storesAsBytes() {
+                        Set<String> largePending = new HashSet<>();
+                        for (int i = 0; i < 500; i++) {
+                                largePending.add("tool-call-" + i);
+                        }
+
+                        stateManager.savePendingToolCalls(runtimeService, EXECUTION_ID, largePending);
+
+                        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+                        verify(runtimeService).setVariableLocal(eq(EXECUTION_ID),
+                                        eq("_agentPendingToolCalls"), captor.capture());
+
+                        Object stored = captor.getValue();
+                        assertInstanceOf(byte[].class, stored);
+                }
+
+                @Test
+                void loadPendingToolCalls_fromBytes_roundTrips() {
+                        Set<String> original = Set.of("tc1", "tc2", "tc3");
+                        stateManager.savePendingToolCalls(runtimeService, EXECUTION_ID, original);
+
+                        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+                        verify(runtimeService).setVariableLocal(eq(EXECUTION_ID),
+                                        eq("_agentPendingToolCalls"), captor.capture());
+
+                        when(runtimeService.getVariableLocal(EXECUTION_ID,
+                                        "_agentPendingToolCalls")).thenReturn(captor.getValue());
+
+                        boolean isPending = stateManager.isPendingToolCall(runtimeService, EXECUTION_ID, "tc1");
+                        assertTrue(isPending);
+                }
+
+                private List<ConversationEntry> createLargeHistory(int entries) {
+                        List<ConversationEntry> history = new java.util.ArrayList<>();
+                        String largeContent = "x".repeat(100);
+                        for (int i = 0; i < entries; i++) {
+                                if (i % 2 == 0) {
+                                        history.add(ConversationEntry.user(largeContent + i));
+                                } else {
+                                        history.add(ConversationEntry.assistant(largeContent + i, List.of()));
+                                }
+                        }
+                        return history;
+                }
+        }
 }
