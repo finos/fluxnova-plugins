@@ -22,11 +22,12 @@ class ConversationMapper {
     /**
      * Builds the Spring AI message list for the next ChatClient call.
      *
-     * <p>Order: agent system prompt, prior conversation history, and — when a non-empty
-     * context is supplied — a fresh system message containing the current variable
-     * values as {@code name = value} lines. The context message is refreshed on
-     * <strong>every</strong> turn so the LLM's view of available variables stays current
-     * between iterations.</p>
+     * <p>Order: agent system prompt, context variables (when non-empty), then prior
+     * conversation history. Context is placed up front with the system framing so the
+     * final message in the list stays a user or tool turn — a trailing system message
+     * suppresses tool calls in some models (e.g. Ollama llama3.1). The context message
+     * is refreshed on <strong>every</strong> turn so the LLM's view of available
+     * variables stays current between iterations.</p>
      *
      * <p>The mapper does not introduce or label the context block — how the LLM should
      * interpret these variables is the agent author's responsibility (via
@@ -40,14 +41,18 @@ class ConversationMapper {
         if (config.systemPrompt() != null && !config.systemPrompt().isBlank()) {
             messages.add(new SystemMessage(config.systemPrompt()));
         }
+        // Context goes up front with the system framing, NOT trailing after the latest turn.
+        // A trailing system message suppresses tool calls in some models (e.g. Ollama llama3.1),
+        // which narrate instead; keeping the last message a user/tool turn fixes it. The context
+        // is still rebuilt on every turn, so the LLM's view of variables stays current.
+        String contextBlock = formatContext(context);
+        if (contextBlock != null) {
+            messages.add(new SystemMessage(contextBlock));
+        }
         if (history != null) {
             for (ConversationEntry entry : history) {
                 messages.add(entryToMessage(entry));
             }
-        }
-        String contextBlock = formatContext(context);
-        if (contextBlock != null) {
-            messages.add(new SystemMessage(contextBlock));
         }
         return messages;
     }

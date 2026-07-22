@@ -42,6 +42,7 @@ class ConversationMapperTest {
         assertThat(messages).hasSize(2);
         assertThat(messages.getFirst().getMessageType()).isEqualTo(MessageType.SYSTEM);
         assertThat(messages.getFirst().getText()).isEqualTo("You are a credit-check agent.");
+        // Context now immediately follows the system prompt (before history)
         assertThat(messages.get(1).getMessageType()).isEqualTo(MessageType.SYSTEM);
         assertThat(messages.get(1).getText())
                 .contains("customerId = c-42")
@@ -91,7 +92,7 @@ class ConversationMapperTest {
 
         List<Message> messages = mapper.toSpringAi(config, context, history);
 
-        // [system, user, assistant, tool] — empty context emits no trailing message
+        // [system, user, assistant, tool] — empty context emits no extra message
         assertThat(messages).hasSize(4);
         assertThat(messages.getFirst().getMessageType()).isEqualTo(MessageType.SYSTEM);
         assertThat(messages.get(1).getMessageType()).isEqualTo(MessageType.USER);

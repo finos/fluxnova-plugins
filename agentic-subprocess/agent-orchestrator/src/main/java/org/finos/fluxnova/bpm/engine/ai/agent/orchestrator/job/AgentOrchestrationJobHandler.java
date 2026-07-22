@@ -59,6 +59,15 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
 
     public static final String TYPE = "agent-orchestration-step";
 
+    /**
+     * Seed user turn for the first LLM call. Without it, the entry-turn conversation is
+     * system-only (system prompt + context), which many models — local ones especially —
+     * won't act on: they narrate instead of emitting tool calls. A user turn kicks off the loop.
+     * TODO: make this configurable via an agent:config attribute (e.g. task/userPrompt).
+     */
+    private static final String INITIAL_USER_PROMPT =
+            "Begin. Use the available tools to complete the task, then respond and stop.";
+
     private final AgentConfigRegistry agentConfigRegistry;
     private final AgentToolCatalogueRegistry toolCatalogueRegistry;
     private final AgentContextSpecRegistry contextSpecRegistry;
@@ -147,6 +156,12 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
         List<ConversationEntry> history = stateManager.loadHistory(runtimeService, scopeExecutionId);
         history = appendToolResults(history, buffer);
         stateManager.clearToolResultBuffer(runtimeService, scopeExecutionId);
+
+        // First turn: history is empty and the mapper would send only system messages.
+        // Seed a user turn so the model actually engages the tools.
+        if (history.isEmpty()) {
+            history.add(ConversationEntry.user(INITIAL_USER_PROMPT));
+        }
 
         AgentConfig agentConfig = agentConfigRegistry
                 .resolve(repositoryService, execution.getProcessDefinitionId(), execution.getActivityId())

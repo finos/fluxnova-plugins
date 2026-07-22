@@ -20,7 +20,6 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.beans.factory.ListableBeanFactory;
 
 import java.util.List;
@@ -86,10 +85,11 @@ class SpringAiLlmServiceTest {
         assertThat(instructions).hasSize(3);
         assertThat(instructions.get(0).getMessageType()).isEqualTo(MessageType.SYSTEM);
         assertThat(instructions.get(0).getText()).isEqualTo("You are an agent.");
-        assertThat(instructions.get(1).getMessageType()).isEqualTo(MessageType.USER);
-        assertThat(instructions.get(1).getText()).isEqualTo("Run a credit check");
-        assertThat(instructions.get(2).getMessageType()).isEqualTo(MessageType.SYSTEM);
-        assertThat(instructions.get(2).getText()).contains("customerId = c-1");
+        // Context now placed before history (not trailing)
+        assertThat(instructions.get(1).getMessageType()).isEqualTo(MessageType.SYSTEM);
+        assertThat(instructions.get(1).getText()).contains("customerId = c-1");
+        assertThat(instructions.get(2).getMessageType()).isEqualTo(MessageType.USER);
+        assertThat(instructions.get(2).getText()).isEqualTo("Run a credit check");
 
         assertThat(response.assistantText()).isEqualTo("Working on it.");
         assertThat(response.toolCalls()).hasSize(1);
@@ -165,13 +165,13 @@ class SpringAiLlmServiceTest {
         verify(chatModel).call(captor.capture());
         Prompt prompt = captor.getValue();
 
-        // [system, user, context-system]
+        // [system, context-system, user] — context now before history
         List<Message> instructions = prompt.getInstructions();
         assertThat(instructions).hasSize(3);
         assertThat(instructions.get(0).getMessageType()).isEqualTo(MessageType.SYSTEM);
-        assertThat(instructions.get(1).getMessageType()).isEqualTo(MessageType.USER);
-        assertThat(instructions.get(2).getMessageType()).isEqualTo(MessageType.SYSTEM);
-        assertThat(instructions.get(2).getText()).contains("customerId = c-7");
+        assertThat(instructions.get(1).getMessageType()).isEqualTo(MessageType.SYSTEM);
+        assertThat(instructions.get(1).getText()).contains("customerId = c-7");
+        assertThat(instructions.get(2).getMessageType()).isEqualTo(MessageType.USER);
 
         assertThat(response.assistantText()).isEqualTo("Got it.");
     }

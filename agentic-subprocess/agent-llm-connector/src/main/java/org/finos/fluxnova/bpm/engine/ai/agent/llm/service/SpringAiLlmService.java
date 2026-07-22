@@ -8,12 +8,12 @@ import org.finos.fluxnova.bpm.engine.ai.agent.llm.tool.AgentToolSchemaConverter;
 import org.finos.fluxnova.bpm.engine.ai.agent.model.AgentConfig;
 import org.finos.fluxnova.bpm.engine.shared.model.ConversationEntry;
 import org.finos.fluxnova.bpm.engine.shared.model.LlmResponse;
-import org.springframework.ai.chat.client.AdvisorParams;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.ToolCallingAdvisor;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.model.tool.ToolCallingChatOptions;
+import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.ai.tool.ToolCallback;
 
 import java.util.List;
@@ -64,12 +64,25 @@ public class SpringAiLlmService implements LlmService {
 
         ChatModel chatModel = providerRegistry.get(agentConfig.provider());
 
-        ChatClient client = ChatClient.builder(chatModel)
-                .build();
-
         List<ConversationEntry> history = conversationHistory == null ? List.of() : conversationHistory;
         List<ToolCallback> toolCallbacks = catalogue == null ? List.of() : toolSchemaConverter.convert(catalogue);
         List<Message> messages = conversationMapper.toSpringAi(agentConfig, context, history);
+
+        // Build a ChatClient whose tool advisor never executes tools internally: the eligibility
+        // checker always returns false, so the model's tool-call response is returned to us and the
+        // orchestrator dispatches each call as a BPMN activity. We go through the ChatClient (rather
+        // than calling the ChatModel directly) so Spring AI merges our options with the provider's
+        // defaults. Spring AI 2.0 removed the per-request internalToolExecutionEnabled flag, so a
+        // non-executing ToolCallingAdvisor is how we opt out. The ToolCallingManager is required but
+        // never invoked (eligibility is always false).
+        ToolCallingAdvisor nonExecutingToolAdvisor = ToolCallingAdvisor.builder()
+                .toolCallingManager(ToolCallingManager.builder().build())
+                .toolExecutionEligibilityChecker(response -> false)
+                .build();
+
+        ChatClient client = ChatClient.builder(chatModel)
+                .defaultAdvisors(nonExecutingToolAdvisor)
+                .build();
 
         ChatClient.ChatClientRequestSpec spec = client.prompt().messages(messages);
         if (!toolCallbacks.isEmpty()) {
