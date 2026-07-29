@@ -105,6 +105,8 @@ jobs:
             exit 1
           fi
           
+          echo "Mapping file found : $MAP_FILE"
+          
           #Extract Key
           PROJECT_KEY=$(yq -r ".projects.\"$PROJECT\".tagKey // \"\"" "$MAP_FILE" 2>/dev/null || echo "failed")
           
@@ -113,6 +115,7 @@ jobs:
             exit 1
           fi
           
+          echo "Resolved project key: $PROJECT_KEY"
           echo "project-key=$PROJECT_KEY" >> $GITHUB_OUTPUT
           
           #Extract Path
@@ -123,6 +126,7 @@ jobs:
             exit 1
           fi
           
+          echo "Resolved project path: $PROJECT_PATH"
           echo "project-path=$PROJECT_PATH" >> "$GITHUB_OUTPUT"
 
   publish-central:
