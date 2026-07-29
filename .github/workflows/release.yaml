@@ -108,7 +108,7 @@ jobs:
           #Extract Key
           PROJECT_KEY=$(yq -r ".projects.\"$PROJECT\".tagKey // \"\"" "$MAP_FILE" 2>/dev/null || echo "failed")
           
-          if [[ -z "$PROJECT_KEY" || "$PROJECT_KEY" == "null" || "$PROJECT_KEY" == "failed"]]; then
+          if [[ -z "$PROJECT_KEY" || "$PROJECT_KEY" == "null" || "$PROJECT_KEY" == "failed" ]]; then
             echo "ERROR: Unknown project '$PROJECT' or missing tagKey in $MAP_FILE"
             exit 1
           fi
@@ -118,7 +118,7 @@ jobs:
           #Extract Path
           PROJECT_PATH=$(yq -r ".projects.\"$PROJECT\".path // \"\"" "$MAP_FILE" 2>/dev/null || echo "failed")
           
-          if [[ -z "$PROJECT_PATH" || "$PROJECT_PATH" == "null" || "$PROJECT_PATH" == "failed"] ]]; then
+          if [[ -z "$PROJECT_PATH" || "$PROJECT_PATH" == "null" || "$PROJECT_PATH" == "failed" ]]; then
             echo "ERROR: Unknown project '$PROJECT' or missing path in $MAP_FILE"
             exit 1
           fi
