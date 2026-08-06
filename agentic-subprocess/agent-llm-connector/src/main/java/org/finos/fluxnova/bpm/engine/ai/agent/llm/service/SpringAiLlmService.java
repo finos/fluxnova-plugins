@@ -8,15 +8,21 @@ import org.finos.fluxnova.bpm.engine.ai.agent.llm.tool.AgentToolSchemaConverter;
 import org.finos.fluxnova.bpm.engine.ai.agent.model.AgentConfig;
 import org.finos.fluxnova.bpm.engine.shared.model.ConversationEntry;
 import org.finos.fluxnova.bpm.engine.shared.model.LlmResponse;
+import org.springframework.ai.anthropic.AnthropicCacheOptions;
+import org.springframework.ai.anthropic.AnthropicCacheStrategy;
+import org.springframework.ai.anthropic.AnthropicChatOptions;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.ToolCallingAdvisor;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.model.tool.ToolCallingManager;
+import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.tool.ToolCallback;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -85,6 +91,10 @@ public class SpringAiLlmService implements LlmService {
                 .build();
 
         ChatClient.ChatClientRequestSpec spec = client.prompt().messages(messages);
+        ChatOptions.Builder<?> options = buildRequestOptions(agentConfig);
+        if (options != null) {
+            spec = spec.options(options);
+        }
         if (!toolCallbacks.isEmpty()) {
             spec = spec.toolCallbacks(toolCallbacks);
         }
@@ -112,5 +122,78 @@ public class SpringAiLlmService implements LlmService {
         }
 
         return response;
+    }
+
+    /**
+     * Builds provider-specific chat options for model selection and prompt caching.
+     *
+     * <p>Anthropic uses {@code cacheStrategy} (e.g. {@code SYSTEM_AND_TOOLS}). OpenAI uses
+     * {@code promptCacheKey}. Other providers only get a model override when present.
+     */
+    static ChatOptions.Builder<?> buildRequestOptions(AgentConfig agentConfig) {
+        String provider = normalize(agentConfig.provider());
+        String model = blankToNull(agentConfig.model());
+        String cacheStrategy = blankToNull(agentConfig.cacheStrategy());
+        String promptCacheKey = blankToNull(agentConfig.promptCacheKey());
+
+        if ("anthropic".equals(provider)) {
+            if (model == null && cacheStrategy == null) {
+                return null;
+            }
+            AnthropicChatOptions.Builder builder = AnthropicChatOptions.builder();
+            if (model != null) {
+                builder.model(model);
+            }
+            if (cacheStrategy != null) {
+                AnthropicCacheStrategy strategy = parseCacheStrategy(cacheStrategy);
+                AnthropicCacheOptions.Builder cacheOptions =
+                        AnthropicCacheOptions.builder().strategy(strategy);
+                if (strategy == AnthropicCacheStrategy.CONVERSATION_HISTORY) {
+                    cacheOptions.cacheToolResults(true);
+                }
+                builder.cacheOptions(cacheOptions.build());
+            }
+            return builder;
+        }
+
+        if ("openai".equals(provider)) {
+            OpenAiChatOptions.Builder builder = OpenAiChatOptions.builder();
+            if (model != null) {
+                builder.model(model);
+            }
+            if (promptCacheKey != null) {
+                builder.promptCacheKey(promptCacheKey);
+            }
+            if (model == null && promptCacheKey == null) {
+                return null;
+            }
+            return builder;
+        }
+
+        if (model == null) {
+            return null;
+        }
+        return ChatOptions.builder().model(model);
+    }
+
+    private static AnthropicCacheStrategy parseCacheStrategy(String raw) {
+        try {
+            return AnthropicCacheStrategy.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalStateException(
+                    "Unknown Anthropic cacheStrategy '"
+                            + raw
+                            + "'. Expected one of: NONE, TOOLS_ONLY, SYSTEM_ONLY, "
+                            + "SYSTEM_AND_TOOLS, CONVERSATION_HISTORY",
+                    ex);
+        }
+    }
+
+    private static String normalize(String provider) {
+        return provider == null ? "" : provider.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }

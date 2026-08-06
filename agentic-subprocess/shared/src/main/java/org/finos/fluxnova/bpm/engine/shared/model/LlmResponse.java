@@ -2,6 +2,17 @@ package org.finos.fluxnova.bpm.engine.shared.model;
 
 import java.util.List;
 
-public record LlmResponse(String assistantText, List<ToolCallRequest> toolCalls,
-        List<ConversationEntry> updatedHistory) {
+public record LlmResponse(
+    String assistantText,
+    List<ToolCallRequest> toolCalls,
+    List<ConversationEntry> updatedHistory,
+    TokenUsage tokenUsage) {
+
+  public LlmResponse(
+      String assistantText,
+      List<ToolCallRequest> toolCalls,
+      List<ConversationEntry> updatedHistory) {
+    this(assistantText, toolCalls, updatedHistory, null);
+  }
+
 }

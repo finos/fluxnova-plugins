@@ -12,6 +12,8 @@ import org.finos.fluxnova.bpm.engine.shared.model.ConversationEntry;
 import org.finos.fluxnova.bpm.engine.shared.model.LlmResponse;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.ai.anthropic.AnthropicCacheStrategy;
+import org.springframework.ai.anthropic.AnthropicChatOptions;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.MessageType;
@@ -20,6 +22,7 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.beans.factory.ListableBeanFactory;
 
 import java.util.List;
@@ -35,12 +38,16 @@ class SpringAiLlmServiceTest {
 
     private final AgentToolSchemaConverter converter = new AgentToolSchemaConverter();
 
+    @SuppressWarnings({"rawtypes", "unchecked"})
     private ChatModel mockChatModel(ChatResponse response) {
         ChatModel chatModel = mock(ChatModel.class);
         when(chatModel.call(any(Prompt.class))).thenReturn(response);
-        // Mock getOptions() to return a ChatOptions mock so Spring AI 2.0.0 doesn't throw NPE
+        // Mock getOptions() so Spring AI 2.0.0 can mutate/combine request options.
         ChatOptions options = mock(ChatOptions.class);
-        when(options.mutate()).thenReturn(mock(ChatOptions.Builder.class));
+        ChatOptions.Builder optionsBuilder = mock(ChatOptions.Builder.class);
+        when(options.mutate()).thenReturn(optionsBuilder);
+        when(optionsBuilder.combineWith(any())).thenReturn(optionsBuilder);
+        when(optionsBuilder.build()).thenReturn(options);
         when(chatModel.getOptions()).thenReturn(options);
         return chatModel;
     }
@@ -249,6 +256,64 @@ class SpringAiLlmServiceTest {
                 .hasMessageContaining("LLM made tool calls but no tools were provided in the request");
     }
 
+    @Test
+    void buildRequestOptions_anthropicAppliesCacheStrategy() {
+        AgentConfig config =
+                new AgentConfig(
+                        "proc-1",
+                        "agent-1",
+                        "anthropic",
+                        "claude-sonnet-5",
+                        "prompt",
+                        "agent-1",
+                        "SYSTEM_AND_TOOLS",
+                        null);
+
+        ChatOptions.Builder<?> options = SpringAiLlmService.buildRequestOptions(config);
+        assertThat(options).isInstanceOf(AnthropicChatOptions.Builder.class);
+        AnthropicChatOptions built = ((AnthropicChatOptions.Builder) options).build();
+        assertThat(built.getModel()).isEqualTo("claude-sonnet-5");
+        assertThat(built.getCacheOptions().getStrategy())
+                .isEqualTo(AnthropicCacheStrategy.SYSTEM_AND_TOOLS);
+    }
+
+    @Test
+    void buildRequestOptions_openaiAppliesPromptCacheKey() {
+        AgentConfig config =
+                new AgentConfig(
+                        "proc-1",
+                        "agent-1",
+                        "openai",
+                        "gpt-5.4",
+                        "prompt",
+                        "agent-1",
+                        null,
+                        "loan-approval");
+
+        ChatOptions.Builder<?> options = SpringAiLlmService.buildRequestOptions(config);
+        assertThat(options).isInstanceOf(OpenAiChatOptions.Builder.class);
+        OpenAiChatOptions built = ((OpenAiChatOptions.Builder) options).build();
+        assertThat(built.getModel()).isEqualTo("gpt-5.4");
+        assertThat(built.getPromptCacheKey()).isEqualTo("loan-approval");
+    }
+
+    @Test
+    void buildRequestOptions_unknownAnthropicStrategy_throws() {
+        AgentConfig config =
+                new AgentConfig(
+                        "proc-1",
+                        "agent-1",
+                        "anthropic",
+                        "claude-sonnet-5",
+                        null,
+                        "agent-1",
+                        "NOT_A_STRATEGY",
+                        null);
+
+        assertThatThrownBy(() -> SpringAiLlmService.buildRequestOptions(config))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("cacheStrategy");
+    }
 
     private static AgentProviderProperties propertiesWithOverride(String providerId, String beanName) {
         AgentProviderProperties props = new AgentProviderProperties();
