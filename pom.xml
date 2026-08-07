@@ -326,7 +326,9 @@
         <url>https://github.com/orgs/finos/projects/116</url>
     </issueManagement>
 
-    <scm>
+    <scm child.scm.connection.inherit.append.path="false"
+         child.scm.developerConnection.inherit.append.path="false"
+         child.scm.url.inherit.append.path="false">
         <connection>scm:git:https://github.com/finos/finos-fluxnova-plugins.git</connection>
         <developerConnection>scm:git:https://github.com/finos/finos-fluxnova-plugins.git</developerConnection>
         <url>https://github.com/finos/finos-fluxnova-plugins</url>

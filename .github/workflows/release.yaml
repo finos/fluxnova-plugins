@@ -100,6 +100,8 @@ jobs:
           PROJECT="${{ inputs.project }}"
           MAP_FILE=".github/config/projects.yaml"
           
+          echo "Resolving project metadata for '$PROJECT' from mapping file '$MAP_FILE'"
+          
           if [[ ! -f "$MAP_FILE" ]]; then
             echo "ERROR: Project mapping file '$MAP_FILE' not found"
             exit 1
