@@ -70,6 +70,9 @@ jobs:
           elif [[ "$BRANCH_NAME" == hotfix/* ]]; then
             BRANCH_TYPE="hotfix"
             echo "  Valid hotfix branch: $BRANCH_NAME"
+          elif [[ "$BRANCH_NAME" == feature/* ]]; then
+            BRANCH_TYPE="release"
+            echo "  TEST RLEASE USING FEATURE BRANCH as RELEASE BRANCH: $BRANCH_NAME"
           else
             echo "  ERROR: Invalid branch name '$BRANCH_NAME'"
             echo "  Branch must be 'release/*' or 'hotfix/*'"
@@ -266,7 +269,7 @@ jobs:
           git config --global url."https://${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
 
       - name: Prepare release
-        if: ${{ !inputs.dry-run }}
+        if: ${{ !inputs.dry-run && false }}
         run: |
           echo "=== Preparing Release ==="
           mvn -B \
@@ -283,7 +286,7 @@ jobs:
             -s ./settings.xml
 
       - name: Perform release
-        if: ${{ !inputs.dry-run }}
+        if: ${{ !inputs.dry-run && false }}
         run: |
           echo "=== Performing Release ==="
           mvn -B \
@@ -298,7 +301,7 @@ jobs:
             -s ./settings.xml
 
       - name: Print release summary
-        if: ${{ !inputs.dry-run }}
+        if: ${{ !inputs.dry-run && false }}
         run: |
           echo "=== Release Complete ==="
           echo "Project  : ${{ inputs.project }}"
