@@ -73,6 +73,9 @@ jobs:
           elif [[ "$BRANCH_NAME" == feature/* ]]; then
             BRANCH_TYPE="release"
             echo "  TEST RLEASE USING FEATURE BRANCH as RELEASE BRANCH: $BRANCH_NAME"
+          elif [[ "$BRANCH_NAME" == fidelity-contributions:feature/* ]]; then
+            BRANCH_TYPE="release"
+            echo "  TEST RLEASE USING FEATURE BRANCH as RELEASE BRANCH: $BRANCH_NAME"
           else
             echo "  ERROR: Invalid branch name '$BRANCH_NAME'"
             echo "  Branch must be 'release/*' or 'hotfix/*'"
