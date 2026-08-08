@@ -1,14 +1,32 @@
 # Workflow: Mono-repo Release - Publish selected project to Maven Central
-# Purpose: Release and publish Maven artifacts for a specific project to Sonatype OSSRH
-# Triggers:
-#   - Manual dispatch: select project + dry-run option
-# Branch requirements:
-#   - Must be on a release/* or hotfix/* branch
-#   - release/* → major version increment
-#   - hotfix/* → minor version increment
-# Prerequisites:
-#   - Project pom.xml must be on a *-SNAPSHOT version
-#   - User must be on a valid release or hotfix branch
+#
+# Purpose
+# - Release and publish Maven artifacts for one selected project from this monorepo.
+# - Supports dry-run planning and full Maven release execution.
+#
+# Trigger
+# - Manual only: workflow_dispatch
+# - Inputs:
+#   - project: project key to release
+#   - dry-run: true/false (default true)
+#
+# Branch Rules (current)
+# - release/*  -> treated as release branch (major next-dev bump logic)
+# - hotfix/*   -> treated as hotfix branch (minor next-dev bump logic)
+#
+# Release Versioning Behavior
+# - Validates selected project version is *-SNAPSHOT.
+# - Computes:
+#   - release-version = current version without -SNAPSHOT
+#   - development-version:
+#       release/* -> (major+1).0.0-SNAPSHOT
+#       hotfix/*  -> major.(minor+1).0-SNAPSHOT
+# - Tag format: <projectKey>-v<releaseVersion>
+# - release:prepare + release:perform execute against selected project pom only.
+#
+# Notes
+# - Workflow reads project metadata from `.github/config/projects.yaml`.
+# - Deploys to Staging. Manually promote to Maven Central via Sonatype OSSRH web UI after release is complete.
 
 name: "Release - Mono-repo publish to Maven Central"
 
@@ -71,7 +89,7 @@ jobs:
             BRANCH_TYPE="hotfix"
             echo "  Valid hotfix branch: $BRANCH_NAME"
           elif [[ "$BRANCH_NAME" == feature/* ]]; then
-            BRANCH_TYPE="release"
+            BRANCH_TYPE="hotfix"
             echo "  TEST RLEASE USING FEATURE BRANCH as RELEASE BRANCH: $BRANCH_NAME"
           elif [[ "$BRANCH_NAME" == fidelity-contributions:feature/* ]]; then
             BRANCH_TYPE="release"
@@ -269,7 +287,12 @@ jobs:
       - name: Configure GitHub authentication for Maven Release Plugin
         if: ${{ !inputs.dry-run }}
         run: |
-          git config --global url."https://${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
+          if [[ -n "${GH_TOKEN}" ]]; then
+            echo "Configuring GitHub authentication for Maven Release Plugin"
+            git config --global url."https://${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
+          else
+            echo "GH_TOKEN is not set. Falling back to default auth."
+          fi
 
       - name: Prepare release
         if: ${{ !inputs.dry-run && false }}
@@ -298,7 +321,7 @@ jobs:
             -DcommitByProject=true \
             -DinteractiveMode=false \
             -DreleaseProfiles=release \
-            -Dgoals='deploy org.sonatype.plugins:nexus-staging-maven-plugin:1.6.13:close' \
+            -Dgoals='deploy nexus-staging:close' \
             -Darguments='-DautoVersionSubmodules=true -DcommitByProject=true -DreleasePerform=true -DskipTests -DskipITs' \
             release:perform \
             -s ./settings.xml

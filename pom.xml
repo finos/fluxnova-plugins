@@ -30,9 +30,8 @@
         <plugin.version.javadoc>3.8.0</plugin.version.javadoc>
         <plugin.version.source>3.3.1</plugin.version.source>
         <gpg.executable>gpg</gpg.executable>
-        <release.goals>deploy org.sonatype.plugins:nexus-staging-maven-plugin:1.6.13:close</release.goals>
-        <!--    <release.goals>install org.sonatype.central:central-publishing-maven-plugin:0.9.0:publish</release.goals>-->
-        <plugin.version.publish>0.9.0</plugin.version.publish>
+        <release.goals>deploy nexus-staging:close</release.goals>
+        <plugin.version.nexus-staging>1.6.13</plugin.version.nexus-staging>
         <plugin.version.deploy>3.1.4</plugin.version.deploy>
         <publish.server.id>ossrh</publish.server.id>
         <skip.source.attach>false</skip.source.attach>
@@ -96,13 +95,14 @@
                     <version>${plugin.version.deploy}</version>
                 </plugin>
                 <plugin>
-                    <groupId>org.sonatype.central</groupId>
-                    <artifactId>central-publishing-maven-plugin</artifactId>
-                    <version>${plugin.version.publish}</version>
+                    <groupId>org.sonatype.plugins</groupId>
+                    <artifactId>nexus-staging-maven-plugin</artifactId>
+                    <version>${plugin.version.nexus-staging}</version>
                     <extensions>true</extensions>
                     <configuration>
                         <publishingServerId>${publish.server.id}</publishingServerId>
-                        <autoPublish>false</autoPublish>
+                        <nexusUrl>https://s01.oss.sonatype.org/</nexusUrl>
+                        <autoReleaseAfterClose>false</autoReleaseAfterClose>
                     </configuration>
                 </plugin>
                 <plugin>
@@ -292,6 +292,11 @@
                                 </goals>
                             </execution>
                         </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.plugins</groupId>
+                        <artifactId>nexus-staging-maven-plugin</artifactId>
+                        <version>${plugin.version.nexus-staging}</version>
                     </plugin>
                 </plugins>
             </build>
