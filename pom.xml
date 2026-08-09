@@ -9,6 +9,30 @@
 
     <name>Fluxnova Platform - engine plugins</name>
 
+    <!--
+        ╔══════════════════════════════════════════════════════════════════╗
+        ║                  DEVELOPER NOTICE - READ BEFORE EDITING          ║
+        ╠══════════════════════════════════════════════════════════════════╣
+        ║                                                                  ║
+        ║  This POM is the ROOT AGGREGATOR / BUILD PARENT only.            ║
+        ║                                                                  ║
+        ║  - It is NOT published to Maven Central or any artifact repo.    ║
+        ║  - Its version MUST NOT be changed during module releases.       ║
+        ║    (Only individual sub-project POMs are versioned/released.)    ║
+        ║                                                                  ║
+        ║  - All shared dependency versions and plugin versions must be    ║
+        ║    declared HERE in <dependencyManagement> / <pluginManagement>  ║
+        ║    and inherited by sub-projects.                                ║
+        ║                                                                  ║
+        ║  - Do NOT add module-specific dependencies directly here.        ║
+        ║    Add them in the relevant sub-project's own pom.xml.           ║
+        ║                                                                  ║
+        ║  - Override the dependency versions in the sub-project POMs,     ║
+        ║    if necessary.                                                 ║
+        ║                                                                  ║
+        ╚══════════════════════════════════════════════════════════════════╝
+    -->
+
     <properties>
         <fluxnova.version>3.0.0</fluxnova.version>
         <java.version>21</java.version>
@@ -267,6 +291,9 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-javadoc-plugin</artifactId>
                         <version>${plugin.version.javadoc}</version>
+                        <configuration>
+                            <doclint>none</doclint>
+                        </configuration>
                         <executions>
                             <execution>
                                 <id>attach-javadocs</id>

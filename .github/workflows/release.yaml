@@ -322,7 +322,7 @@ jobs:
             -DinteractiveMode=false \
             -DreleaseProfiles=release \
             -Dgoals='deploy nexus-staging:close' \
-            -Darguments='-DautoVersionSubmodules=true -DcommitByProject=true -DreleasePerform=true -DskipTests -DskipITs' \
+            -Darguments='-DautoVersionSubmodules=true -DcommitByProject=true -DreleasePerform=true -DskipTests -DskipITs -Ddoclint=none' \
             release:perform \
             -s ./settings.xml
 
