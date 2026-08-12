@@ -8,16 +8,32 @@ import org.finos.fluxnova.bpm.engine.RuntimeService;
 import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.state.AgentStateManager;
 import org.finos.fluxnova.bpm.engine.shared.model.ConversationEntry;
 import org.finos.fluxnova.bpm.engine.shared.model.Role;
+import org.finos.fluxnova.bpm.engine.shared.model.TokenUsage;
 import org.finos.fluxnova.bpm.engine.shared.model.ToolCallRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
- * Exports agent conversation state as process variables for traceability.
+ * Exports agent conversation state and token usage as process variables for traceability.
  */
 public final class AgentTraceExporter {
+
+  private static final Logger LOG = LoggerFactory.getLogger(AgentTraceExporter.class);
 
   public static final String VAR_LAST_RESPONSE = "agentLastResponse";
   public static final String VAR_CONVERSATION_TRACE = "agentConversationTrace";
   public static final String VAR_CONVERSATION_HISTORY = "agentConversationHistory";
+  public static final String VAR_PROMPT_TOKENS = "agentPromptTokens";
+  public static final String VAR_COMPLETION_TOKENS = "agentCompletionTokens";
+  public static final String VAR_TOTAL_TOKENS = "agentTotalTokens";
+  public static final String VAR_TOKEN_USAGE = "agentTokenUsage";
+  public static final String VAR_LLM_CALL_COUNT = "agentLlmCallCount";
+
+  // Internal scope-local variable keys for accumulation across turns
+  static final String INTERNAL_PROMPT_TOKENS = "_agentAccPromptTokens";
+  static final String INTERNAL_COMPLETION_TOKENS = "_agentAccCompletionTokens";
+  static final String INTERNAL_TOTAL_TOKENS = "_agentAccTotalTokens";
+  static final String INTERNAL_LLM_CALL_COUNT = "_agentLlmCallCount";
 
   private AgentTraceExporter() {}
 
@@ -39,13 +55,66 @@ public final class AgentTraceExporter {
       variables.put(VAR_CONVERSATION_TRACE, trace);
     }
 
-    String historyJson =
-        (String) runtimeService.getVariableLocal(scopeExecutionId, "_agentConversationHistory");
+    Object rawHistory =
+        runtimeService.getVariableLocal(scopeExecutionId, "_agentConversationHistory");
+    String historyJson = toStringValue(rawHistory);
     if (historyJson != null && !historyJson.isBlank()) {
       variables.put(VAR_CONVERSATION_HISTORY, historyJson);
     }
 
+    // Token usage variables
+    long promptTokens = loadLongVariable(runtimeService, scopeExecutionId, INTERNAL_PROMPT_TOKENS);
+    long completionTokens = loadLongVariable(runtimeService, scopeExecutionId, INTERNAL_COMPLETION_TOKENS);
+    long totalTokens = loadLongVariable(runtimeService, scopeExecutionId, INTERNAL_TOTAL_TOKENS);
+    int llmCallCount = loadIntVariable(runtimeService, scopeExecutionId, INTERNAL_LLM_CALL_COUNT);
+
+    if (llmCallCount > 0) {
+      variables.put(VAR_PROMPT_TOKENS, promptTokens);
+      variables.put(VAR_COMPLETION_TOKENS, completionTokens);
+      variables.put(VAR_TOTAL_TOKENS, totalTokens);
+      variables.put(VAR_LLM_CALL_COUNT, llmCallCount);
+      variables.put(VAR_TOKEN_USAGE, String.format(
+          "{\"promptTokens\":%d,\"completionTokens\":%d,\"totalTokens\":%d,\"llmCalls\":%d}",
+          promptTokens, completionTokens, totalTokens, llmCallCount));
+    }
+
     return variables;
+  }
+
+  /**
+   * Accumulates token usage from a single LLM call into scope-local variables.
+   * Called after each successful LLM call in the orchestration loop.
+   *
+   * @param runtimeService    the runtime service for variable access
+   * @param scopeExecutionId  the ad-hoc subprocess scope execution id
+   * @param tokenUsage        the token usage from this LLM call; may be {@code null} if the
+   *                          provider does not report usage
+   */
+  public static void accumulateTokenUsage(
+      RuntimeService runtimeService, String scopeExecutionId, TokenUsage tokenUsage) {
+    // Always increment call count
+    int callCount = loadIntVariable(runtimeService, scopeExecutionId, INTERNAL_LLM_CALL_COUNT) + 1;
+    runtimeService.setVariableLocal(scopeExecutionId, INTERNAL_LLM_CALL_COUNT, callCount);
+
+    if (tokenUsage == null) {
+      LOG.warn("LLM provider did not return token usage metadata for scope '{}', skipping token accumulation",
+          scopeExecutionId);
+      return;
+    }
+
+    long promptTokens = loadLongVariable(runtimeService, scopeExecutionId, INTERNAL_PROMPT_TOKENS)
+        + tokenUsage.promptTokens();
+    long completionTokens = loadLongVariable(runtimeService, scopeExecutionId, INTERNAL_COMPLETION_TOKENS)
+        + tokenUsage.completionTokens();
+    long totalTokens = loadLongVariable(runtimeService, scopeExecutionId, INTERNAL_TOTAL_TOKENS)
+        + tokenUsage.totalTokens();
+
+    runtimeService.setVariableLocal(scopeExecutionId, INTERNAL_PROMPT_TOKENS, promptTokens);
+    runtimeService.setVariableLocal(scopeExecutionId, INTERNAL_COMPLETION_TOKENS, completionTokens);
+    runtimeService.setVariableLocal(scopeExecutionId, INTERNAL_TOTAL_TOKENS, totalTokens);
+
+    LOG.debug("Token usage for scope '{}': prompt={}, completion={}, total={}, callCount={}",
+        scopeExecutionId, promptTokens, completionTokens, totalTokens, callCount);
   }
 
   /**
@@ -113,5 +182,44 @@ public final class AgentTraceExporter {
       return;
     }
     trace.append(entry.toolResult()).append('\n');
+  }
+
+  /**
+   * Converts a process variable value to String, handling the case where the engine
+   * stores large strings as {@code byte[]} (binary serialization).
+   */
+  private static String toStringValue(Object value) {
+    if (value == null) {
+      return null;
+    }
+    if (value instanceof String s) {
+      return s;
+    }
+    if (value instanceof byte[] bytes) {
+      return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+    }
+    return value.toString();
+  }
+
+  private static long loadLongVariable(RuntimeService runtimeService, String executionId, String name) {
+    Object value = runtimeService.getVariableLocal(executionId, name);
+    if (value == null) {
+      return 0L;
+    }
+    if (value instanceof Number n) {
+      return n.longValue();
+    }
+    return 0L;
+  }
+
+  private static int loadIntVariable(RuntimeService runtimeService, String executionId, String name) {
+    Object value = runtimeService.getVariableLocal(executionId, name);
+    if (value == null) {
+      return 0;
+    }
+    if (value instanceof Number n) {
+      return n.intValue();
+    }
+    return 0;
   }
 }

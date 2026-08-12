@@ -245,6 +245,7 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
         LlmResponse response =
                 llmService.call(agentConfig, catalogue, context, history);
         LOG.debug("LLM response for scope '{}': toolCalls={}", scopeExecutionId, response.toolCalls());
+        AgentTraceExporter.accumulateTokenUsage(runtimeService, scopeExecutionId, response.tokenUsage());
         stateManager.saveHistory(runtimeService, scopeExecutionId, response.updatedHistory());
         publishTrace(runtimeService, execution, scopeExecutionId);
 

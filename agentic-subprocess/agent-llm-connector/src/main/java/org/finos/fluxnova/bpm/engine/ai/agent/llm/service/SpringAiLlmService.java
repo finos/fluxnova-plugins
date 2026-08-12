@@ -8,9 +8,6 @@ import org.finos.fluxnova.bpm.engine.ai.agent.llm.tool.AgentToolSchemaConverter;
 import org.finos.fluxnova.bpm.engine.ai.agent.model.AgentConfig;
 import org.finos.fluxnova.bpm.engine.shared.model.ConversationEntry;
 import org.finos.fluxnova.bpm.engine.shared.model.LlmResponse;
-import org.springframework.ai.anthropic.AnthropicCacheOptions;
-import org.springframework.ai.anthropic.AnthropicCacheStrategy;
-import org.springframework.ai.anthropic.AnthropicChatOptions;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.ToolCallingAdvisor;
 import org.springframework.ai.chat.messages.Message;
@@ -18,7 +15,6 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.model.tool.ToolCallingManager;
-import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.tool.ToolCallback;
 
 import java.util.List;
@@ -127,8 +123,12 @@ public class SpringAiLlmService implements LlmService {
     /**
      * Builds provider-specific chat options for model selection and prompt caching.
      *
-     * <p>Anthropic uses {@code cacheStrategy} (e.g. {@code SYSTEM_AND_TOOLS}). OpenAI uses
-     * {@code promptCacheKey}. Other providers only get a model override when present.
+     * <p>Provider-specific options (Anthropic cache strategy, OpenAI prompt cache key) are
+     * applied only when the corresponding Spring AI provider module is on the classpath.
+     * Each provider's logic lives in its own class file ({@link AnthropicChatOptionsFactory},
+     * {@link OpenAiChatOptionsFactory}) which is never loaded by the JVM if the provider
+     * JAR is absent — avoiding {@link NoClassDefFoundError} in projects that don't use
+     * that provider.</p>
      */
     static ChatOptions.Builder<?> buildRequestOptions(AgentConfig agentConfig) {
         String provider = normalize(agentConfig.provider());
@@ -136,56 +136,29 @@ public class SpringAiLlmService implements LlmService {
         String cacheStrategy = blankToNull(agentConfig.cacheStrategy());
         String promptCacheKey = blankToNull(agentConfig.promptCacheKey());
 
-        if ("anthropic".equals(provider)) {
-            if (model == null && cacheStrategy == null) {
-                return null;
-            }
-            AnthropicChatOptions.Builder builder = AnthropicChatOptions.builder();
-            if (model != null) {
-                builder.model(model);
-            }
-            if (cacheStrategy != null) {
-                AnthropicCacheStrategy strategy = parseCacheStrategy(cacheStrategy);
-                AnthropicCacheOptions.Builder cacheOptions =
-                        AnthropicCacheOptions.builder().strategy(strategy);
-                if (strategy == AnthropicCacheStrategy.CONVERSATION_HISTORY) {
-                    cacheOptions.cacheToolResults(true);
-                }
-                builder.cacheOptions(cacheOptions.build());
-            }
-            return builder;
+        if ("anthropic".equals(provider)
+                && isClassPresent("org.springframework.ai.anthropic.AnthropicChatOptions")) {
+            return new AnthropicChatOptionsFactory().build(model, cacheStrategy, promptCacheKey);
         }
 
-        if ("openai".equals(provider)) {
-            OpenAiChatOptions.Builder builder = OpenAiChatOptions.builder();
-            if (model != null) {
-                builder.model(model);
-            }
-            if (promptCacheKey != null) {
-                builder.promptCacheKey(promptCacheKey);
-            }
-            if (model == null && promptCacheKey == null) {
-                return null;
-            }
-            return builder;
+        if ("openai".equals(provider)
+                && isClassPresent("org.springframework.ai.openai.OpenAiChatOptions")) {
+            return new OpenAiChatOptionsFactory().build(model, cacheStrategy, promptCacheKey);
         }
 
+        // Generic fallback: model override only
         if (model == null) {
             return null;
         }
         return ChatOptions.builder().model(model);
     }
 
-    private static AnthropicCacheStrategy parseCacheStrategy(String raw) {
+    private static boolean isClassPresent(String className) {
         try {
-            return AnthropicCacheStrategy.valueOf(raw.trim().toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException ex) {
-            throw new IllegalStateException(
-                    "Unknown Anthropic cacheStrategy '"
-                            + raw
-                            + "'. Expected one of: NONE, TOOLS_ONLY, SYSTEM_ONLY, "
-                            + "SYSTEM_AND_TOOLS, CONVERSATION_HISTORY",
-                    ex);
+            Class.forName(className, false, SpringAiLlmService.class.getClassLoader());
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
         }
     }
 
