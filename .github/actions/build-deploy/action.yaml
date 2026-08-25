@@ -22,7 +22,7 @@ runs:
     - name: Build or Deploy
       shell: bash
       run: |
-        if [[ "${{ inputs.branch }}" == "main" ]] || [[ "${{ inputs.branch }}" == "test/*" ]]; then
+        if [[ "${{ inputs.branch }}" == "main" ]] || [[ "${{ inputs.branch }}" == test/* ]]; then
           mvn -f "${{ inputs.project-path }}/pom.xml" -B -e -U deploy -DskipTests=true -DskipITs=true
         else
           mvn -f "${{ inputs.project-path }}/pom.xml" -B -e -U clean install
