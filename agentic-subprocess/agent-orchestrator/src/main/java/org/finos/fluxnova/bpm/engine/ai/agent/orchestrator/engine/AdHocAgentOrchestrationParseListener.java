@@ -1,8 +1,12 @@
 package org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.engine;
 
 import org.finos.fluxnova.bpm.engine.ActivityTypes;
+import org.finos.fluxnova.bpm.engine.delegate.DelegateExecution;
+import org.finos.fluxnova.bpm.engine.delegate.VariableScope;
+import org.finos.fluxnova.bpm.engine.impl.Condition;
 import org.finos.fluxnova.bpm.engine.impl.bpmn.behavior.AdHocSubProcessValidationHelper;
 import org.finos.fluxnova.bpm.engine.impl.bpmn.parser.AbstractBpmnParseListener;
+import org.finos.fluxnova.bpm.engine.impl.bpmn.parser.BpmnParse;
 import org.finos.fluxnova.bpm.engine.impl.pvm.PvmEvent;
 import org.finos.fluxnova.bpm.engine.impl.pvm.process.ActivityImpl;
 import org.finos.fluxnova.bpm.engine.impl.pvm.process.ScopeImpl;
@@ -15,6 +19,29 @@ import org.finos.fluxnova.bpm.engine.shared.agent.AgentModelConstants;
  * termination of the process, where a specific "completeAdHocSubProcess" method was implemented.
  */
 public class AdHocAgentOrchestrationParseListener extends AbstractBpmnParseListener {
+
+    /**
+     * Keeps agentic ad-hoc scopes open until {@code RuntimeService#completeAdHocSubProcess}
+     * is called. Without this, the engine's default (no-condition) behaviour completes the
+     * ad-hoc as soon as a synchronous tool activity ends, which deletes the scope while
+     * agent state variables still reference it ({@code ACT_FK_VAR_EXE}).
+     */
+    static final Condition NEVER_COMPLETE = new Condition() {
+        @Override
+        public boolean evaluate(DelegateExecution execution) {
+            return false;
+        }
+
+        @Override
+        public boolean evaluate(VariableScope scope, DelegateExecution execution) {
+            return false;
+        }
+
+        @Override
+        public boolean tryEvaluate(VariableScope scope, DelegateExecution execution) {
+            return false;
+        }
+    };
 
     private final AgentSubprocessEntryListener subprocessEntryListener;
     private final SubprocessToolCompletionListener subprocessToolCompletionListener;
@@ -38,6 +65,10 @@ public class AdHocAgentOrchestrationParseListener extends AbstractBpmnParseListe
         if (ext.elementNS(AgentModelConstants.AGENT_NS, "config") == null) {
             return;
         }
+
+        // Orchestrator owns completion; suppress engine auto-complete after tool activities.
+        activity.setProperty(BpmnParse.PROPERTYNAME_AD_HOC_COMPLETION_CONDITION, NEVER_COMPLETE);
+        activity.setProperty(BpmnParse.PROPERTYNAME_AD_HOC_COMPLETION_CONDITION_TEXT, "${false}");
 
         activity.addBuiltInListener(PvmEvent.EVENTNAME_START, subprocessEntryListener);
 

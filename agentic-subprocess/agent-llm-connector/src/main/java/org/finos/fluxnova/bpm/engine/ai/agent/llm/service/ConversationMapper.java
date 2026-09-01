@@ -4,8 +4,10 @@ import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.ResolvedContext;
 import org.finos.fluxnova.bpm.engine.ai.agent.model.AgentConfig;
 import org.finos.fluxnova.bpm.engine.shared.model.ConversationEntry;
 import org.finos.fluxnova.bpm.engine.shared.model.LlmResponse;
+import org.finos.fluxnova.bpm.engine.shared.model.TokenUsage;
 import org.finos.fluxnova.bpm.engine.shared.model.ToolCallRequest;
 import org.springframework.ai.chat.messages.*;
+import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
 
 import java.util.ArrayList;
@@ -100,7 +102,37 @@ class ConversationMapper {
                 priorHistory == null ? List.of() : priorHistory);
         updated.add(ConversationEntry.assistant(text, toolCalls));
 
-        return new LlmResponse(text, toolCalls, updated);
+        return new LlmResponse(text, toolCalls, updated, extractTokenUsage(response));
+    }
+
+    private static TokenUsage extractTokenUsage(ChatResponse response) {
+        if (response == null || response.getMetadata() == null) {
+            return null;
+        }
+        Usage usage = response.getMetadata().getUsage();
+        if (usage == null) {
+            return null;
+        }
+        Integer prompt = usage.getPromptTokens();
+        Integer completion = usage.getCompletionTokens();
+        Integer total = usage.getTotalTokens();
+        if (prompt == null && completion == null && total == null) {
+            return null;
+        }
+        int promptTokens = prompt != null ? prompt : 0;
+        int completionTokens = completion != null ? completion : 0;
+        int totalTokens = total != null ? total : promptTokens + completionTokens;
+        int cacheRead = toInt(usage.getCacheReadInputTokens());
+        int cacheWrite = toInt(usage.getCacheWriteInputTokens());
+        return new TokenUsage(
+                promptTokens, completionTokens, totalTokens, cacheRead, cacheWrite);
+    }
+
+    private static int toInt(Long value) {
+        if (value == null || value <= 0L) {
+            return 0;
+        }
+        return value > Integer.MAX_VALUE ? Integer.MAX_VALUE : value.intValue();
     }
 
     private static String formatContext(ResolvedContext context) {

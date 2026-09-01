@@ -90,6 +90,12 @@ class AdHocAgentOrchestrationParseListenerTest {
             parseListener.parseSubProcess(element, scope, activity);
 
             verify(activity).addBuiltInListener(PvmEvent.EVENTNAME_START, entryListener);
+            verify(activity).setProperty(
+                    org.finos.fluxnova.bpm.engine.impl.bpmn.parser.BpmnParse.PROPERTYNAME_AD_HOC_COMPLETION_CONDITION,
+                    AdHocAgentOrchestrationParseListener.NEVER_COMPLETE);
+            verify(activity).setProperty(
+                    org.finos.fluxnova.bpm.engine.impl.bpmn.parser.BpmnParse.PROPERTYNAME_AD_HOC_COMPLETION_CONDITION_TEXT,
+                    "${false}");
         }
 
         @Test
