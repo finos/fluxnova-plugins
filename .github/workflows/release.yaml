@@ -47,6 +47,7 @@ on:
           - fluxnova-backward-compatibility-plugin
           - agentic
           - agentic-subprocess
+          - a2a-remote-call
       dry-run:
         description: "Perform a dry run"
         required: false
