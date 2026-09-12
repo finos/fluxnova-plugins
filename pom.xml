@@ -40,7 +40,7 @@
         <spring-ai.version>2.0.0</spring-ai.version>
         <spring-boot.version>4.0.7</spring-boot.version>
         <slf4j.version>2.0.9</slf4j.version>
-        <json-schema-validator.version>3.0.0</json-schema-validator.version>
+        <json-schema-validator.version>3.0.7</json-schema-validator.version>
         <junit.version>5.10.1</junit.version>
 
         <skipTests>false</skipTests>
