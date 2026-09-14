@@ -60,13 +60,28 @@ public class AgentConfigExtractor {
         String provider = config.attribute("provider");
         String model = config.attribute("model");
         String systemPrompt = config.attribute("systemPrompt");
+        String cacheStrategy = config.attribute("cacheStrategy");
+        String promptCacheKey = config.attribute("promptCacheKey");
 
         String toolScopeElementId = config.attribute("toolScopeElementId");
         if (isBlankOrNull(toolScopeElementId)) {
             toolScopeElementId = elementId;
         }
 
-        return Optional.of(new AgentConfig(processDefinitionId, elementId, provider, model, systemPrompt, toolScopeElementId));
+        return Optional.of(
+                new AgentConfig(
+                        processDefinitionId,
+                        elementId,
+                        provider,
+                        model,
+                        systemPrompt,
+                        toolScopeElementId,
+                        blankToNull(cacheStrategy),
+                        blankToNull(promptCacheKey)));
+    }
+
+    private static String blankToNull(String value) {
+        return isBlankOrNull(value) ? null : value;
     }
 
     private static boolean isBlankOrNull(String value) {

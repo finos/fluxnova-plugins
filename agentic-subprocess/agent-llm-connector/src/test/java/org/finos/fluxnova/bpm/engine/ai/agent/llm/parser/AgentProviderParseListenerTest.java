@@ -137,6 +137,28 @@ class AgentProviderParseListenerTest {
     }
 
     @Test
+    void parseRootElement_whenProviderIsExpression_skipsRegistryValidation() {
+        String bpmn = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                             xmlns:agent="http://fluxnova.finos.org/schema/1.0/ai/agent">
+                  <process id="p">
+                    <adHocSubProcess id="myAgent">
+                      <extensionElements>
+                        <agent:config provider="${creditRiskAgentProvider}"
+                                      model="${creditRiskAgentModel}"
+                                      systemPrompt="You are an assistant."/>
+                      </extensionElements>
+                    </adHocSubProcess>
+                  </process>
+                </definitions>
+                """;
+
+        assertThatCode(() -> listener.parseRootElement(rootElement(bpmn), List.of()))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
     void parseRootElement_whenProviderBlank_skipsValidation() {
         String bpmn = """
                 <?xml version="1.0" encoding="UTF-8"?>

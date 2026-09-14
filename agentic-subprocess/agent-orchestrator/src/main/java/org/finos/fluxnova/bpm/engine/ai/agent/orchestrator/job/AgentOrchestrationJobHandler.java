@@ -10,12 +10,16 @@ import org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry.AgentToolCatalo
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.runtime.AgentContextResolver;
 import org.finos.fluxnova.bpm.engine.ai.agent.llm.service.LlmService;
 import org.finos.fluxnova.bpm.engine.ai.agent.model.AgentConfig;
+import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.config.AgentConfigExpressionResolver;
 import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.model.AgentOrchestrationConfig;
 import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.model.ToolResult;
 import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.service.AgentTerminationHandler;
 import org.finos.fluxnova.bpm.engine.ai.agent.service.ToolInvocationService;
 import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.state.AgentStateManager;
+import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.trace.AgentTraceExporter;
 import org.finos.fluxnova.bpm.engine.ai.agent.registry.AgentConfigRegistry;
+import org.finos.fluxnova.bpm.engine.impl.context.Context;
+import org.finos.fluxnova.bpm.engine.impl.el.ExpressionManager;
 import org.finos.fluxnova.bpm.engine.impl.interceptor.CommandContext;
 import org.finos.fluxnova.bpm.engine.impl.jobexecutor.JobHandler;
 import org.finos.fluxnova.bpm.engine.impl.persistence.entity.ExecutionEntity;
@@ -33,15 +37,17 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * Job handler that drives a single step of the scope execution loop.
  *
  * <p>Each execution of this handler represents one turn: it reads the current
  * conversation history and any buffered tool results from scope-local variables,
- * resolves the agent configuration and tool catalogue, calls the LLM, and then
- * either dispatches the tool activities the LLM requested or signals completion
- * of the scope if the LLM returned no tool calls.
+ * resolves the agent configuration (evaluating provider/model/systemPrompt
+ * expressions against the current execution), resolves the tool catalogue,
+ * calls the LLM, and then either dispatches the tool activities the LLM
+ * requested or signals completion of the scope if the LLM returned no tool calls.
  *
  * <p>Two entry paths are handled by a single handler type:
  * <ul>
@@ -76,6 +82,7 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
     private final ToolInvocationService toolInvocationService;
     private final AgentStateManager stateManager;
     private final AgentTerminationHandler AgentTerminationHandler;
+    private final Supplier<ExpressionManager> expressionManagerSupplier;
 
     public AgentOrchestrationJobHandler(AgentConfigRegistry agentConfigRegistry,
             AgentToolCatalogueRegistry toolCatalogueRegistry,
@@ -83,6 +90,33 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
             LlmService llmService,
             ToolInvocationService toolInvocationService, AgentStateManager stateManager,
             AgentTerminationHandler AgentTerminationHandler) {
+        this(
+                agentConfigRegistry,
+                toolCatalogueRegistry,
+                contextSpecRegistry,
+                contextResolver,
+                llmService,
+                toolInvocationService,
+                stateManager,
+                AgentTerminationHandler,
+                AgentOrchestrationJobHandler::expressionManagerFromContext);
+    }
+
+    /**
+     * Test-friendly constructor that allows injecting an {@link ExpressionManager} supplier.
+     * Production code should use the primary constructor, which resolves expressions via the
+     * active process-engine command context.
+     */
+    AgentOrchestrationJobHandler(
+            AgentConfigRegistry agentConfigRegistry,
+            AgentToolCatalogueRegistry toolCatalogueRegistry,
+            AgentContextSpecRegistry contextSpecRegistry,
+            AgentContextResolver contextResolver,
+            LlmService llmService,
+            ToolInvocationService toolInvocationService,
+            AgentStateManager stateManager,
+            AgentTerminationHandler AgentTerminationHandler,
+            Supplier<ExpressionManager> expressionManagerSupplier) {
         this.agentConfigRegistry = agentConfigRegistry;
         this.toolCatalogueRegistry = toolCatalogueRegistry;
         this.contextSpecRegistry = contextSpecRegistry;
@@ -91,6 +125,12 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
         this.toolInvocationService = toolInvocationService;
         this.stateManager = stateManager;
         this.AgentTerminationHandler = AgentTerminationHandler;
+        this.expressionManagerSupplier = expressionManagerSupplier;
+    }
+
+    private static ExpressionManager expressionManagerFromContext() {
+        var configuration = Context.getProcessEngineConfiguration();
+        return configuration == null ? null : configuration.getExpressionManager();
     }
 
     @Override
@@ -156,6 +196,10 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
         List<ConversationEntry> history = stateManager.loadHistory(runtimeService, scopeExecutionId);
         history = appendToolResults(history, buffer);
         stateManager.clearToolResultBuffer(runtimeService, scopeExecutionId);
+        if (!buffer.isEmpty()) {
+            stateManager.saveHistory(runtimeService, scopeExecutionId, history);
+            publishTrace(runtimeService, execution, scopeExecutionId);
+        }
 
         // First turn: history is empty and the mapper would send only system messages.
         // Seed a user turn so the model actually engages the tools.
@@ -167,6 +211,14 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
                 .resolve(repositoryService, execution.getProcessDefinitionId(), execution.getActivityId())
                 .orElseThrow(() -> new IllegalStateException("No AgentConfig found for "
                         + execution.getProcessDefinitionId() + "/" + execution.getActivityId()));
+        agentConfig = AgentConfigExpressionResolver.resolve(
+                agentConfig, execution, expressionManagerSupplier.get());
+        LOG.debug(
+                "Resolved AgentConfig for scope '{}': provider='{}', model='{}'",
+                scopeExecutionId,
+                agentConfig.provider(),
+                agentConfig.model());
+
         AgentToolCatalogue catalogue = toolCatalogueRegistry
                 .resolve(repositoryService, execution.getProcessDefinitionId(), execution.getActivityId())
                 .orElseThrow(() -> new IllegalStateException("No AgentToolCatalogue found for "
@@ -193,7 +245,9 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
         LlmResponse response =
                 llmService.call(agentConfig, catalogue, context, history);
         LOG.debug("LLM response for scope '{}': toolCalls={}", scopeExecutionId, response.toolCalls());
+        AgentTraceExporter.accumulateTokenUsage(runtimeService, scopeExecutionId, response.tokenUsage());
         stateManager.saveHistory(runtimeService, scopeExecutionId, response.updatedHistory());
+        publishTrace(runtimeService, execution, scopeExecutionId);
 
         if (response.toolCalls().isEmpty()) {
             LOG.debug("No tool calls returned, triggering termination for scope '{}'", scopeExecutionId);
@@ -254,5 +308,14 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
             updated.add(ConversationEntry.tool(result.toolCallId(), resultContent));
         }
         return updated;
+    }
+
+    private void publishTrace(
+            RuntimeService runtimeService, ExecutionEntity execution, String scopeExecutionId) {
+        AgentTraceExporter.publishToProcessInstance(
+                stateManager,
+                runtimeService,
+                scopeExecutionId,
+                execution.getProcessInstanceId());
     }
 }
