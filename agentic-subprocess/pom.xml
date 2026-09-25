@@ -15,6 +15,10 @@
     <packaging>pom</packaging>
     <version>1.0.0-SNAPSHOT</version>
     <name>Fluxnova Platform - engine plugins - agentic</name>
+    <description>
+        Aggregator for the Fluxnova agentic subprocess engine plugins: agent configuration,
+        tool context discovery, LLM connectivity, tool invocation and the agent orchestrator.
+    </description>
     <modules>
         <module>shared</module>
         <module>agent-config</module>
@@ -24,4 +28,39 @@
         <module>agent-orchestrator</module>
         <module>agentic-subprocess</module>
     </modules>
+
+    <build>
+        <plugins>
+            <!--
+                flatten-maven-plugin (configured in the root pluginManagement).
+
+                Activated here so that THIS aggregator POM - and, through
+                inheritance, every child module - is published as a
+                self-contained POM:
+                  - the build-only parent (fluxnova-plugins) is stripped, and
+                  - the metadata Maven Central requires (description, url,
+                    licenses, scm, developers) is inlined.
+
+                The root POM is intentionally not published, so without
+                flattening the Central Portal cannot resolve the parent and
+                rejects the deployment with "License information is missing",
+                "SCM URL is not defined", etc.
+            -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+                <configuration>
+                    <!--
+                        Mandatory for <packaging>pom</packaging> modules (this
+                        aggregator and the agentic-subprocess bundle): the
+                        plugin only swaps the POM that gets installed/deployed
+                        when updatePomFile is true, and it defaults to false
+                        for pom projects. Without it the raw pom.xml (parent
+                        and all) would be published.
+                    -->
+                    <updatePomFile>true</updatePomFile>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
