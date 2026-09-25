@@ -1,5 +1,6 @@
 package org.finos.fluxnova.bpm.engine.ai.agent.discovery.autoconfigure;
 
+import org.finos.fluxnova.bpm.engine.ai.a2a.discovery.AgentCardCache;
 import org.finos.fluxnova.bpm.engine.ai.agent.autoconfigure.AgentConfigAutoConfiguration;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AdHocSubProcessCatalogueBuilder;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.AgentContextSpecBuilder;
@@ -19,8 +20,8 @@ public class AgentDiscoveryAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public AgentToolCatalogueBuilder agentToolCatalogueBuilder() {
-        return new AdHocSubProcessCatalogueBuilder();
+    public AgentToolCatalogueBuilder agentToolCatalogueBuilder(AgentCardCache agentCardCache) {
+        return new AdHocSubProcessCatalogueBuilder(agentCardCache);
     }
 
     @Bean
@@ -32,8 +33,17 @@ public class AgentDiscoveryAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public AgentToolCatalogueRegistry agentToolCatalogueRegistry(AgentConfigRegistry agentConfigRegistry,
-                                                                  AgentToolCatalogueBuilder catalogueBuilder) {
-        return new AgentToolCatalogueRegistry(agentConfigRegistry, catalogueBuilder);
+                                                                  AgentToolCatalogueBuilder catalogueBuilder,
+                                                                  AgentCardCache agentCardCache) {
+        AgentToolCatalogueRegistry registry =
+                new AgentToolCatalogueRegistry(agentConfigRegistry, catalogueBuilder);
+        // When a remote agent's card content changes on refresh, invalidate cached
+        // catalogues so they rebuild with the updated agent metadata (e.g. new skills).
+        // Catalogues are resolved lazily at orchestration time, so this reaches new
+        // instances and in-flight instances that have not yet entered the agentic scope.
+        agentCardCache.addChangeListener(
+                (baseUrl, previous, updated) -> registry.invalidateAll());
+        return registry;
     }
 
     @Bean

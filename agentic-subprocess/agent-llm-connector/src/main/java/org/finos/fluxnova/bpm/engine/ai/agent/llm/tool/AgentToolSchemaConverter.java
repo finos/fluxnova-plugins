@@ -2,6 +2,7 @@ package org.finos.fluxnova.bpm.engine.ai.agent.llm.tool;
 
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolCatalogue;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolEntry;
+import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolType;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
 import org.springframework.ai.tool.metadata.ToolMetadata;
@@ -26,6 +27,9 @@ public class AgentToolSchemaConverter {
 
     private static final String EMPTY_OBJECT_SCHEMA = "{\"type\":\"object\",\"properties\":{}}";
 
+    private static final String REMOTE_AGENT_SCHEMA =
+            "{\"type\":\"object\",\"properties\":{\"prompt\":{\"type\":\"string\"}},\"required\":[\"prompt\"]}";
+
     /**
      * Converts all tools in the catalogue to Spring AI {@link ToolCallback} instances.
      *
@@ -41,10 +45,14 @@ public class AgentToolSchemaConverter {
     }
 
     private ToolCallback toCallback(AgentToolEntry tool) {
+        String schema = tool.type() == AgentToolType.REMOTE_AGENT
+                ? REMOTE_AGENT_SCHEMA
+                : EMPTY_OBJECT_SCHEMA;
+
         ToolDefinition definition = ToolDefinition.builder()
                 .name(tool.elementId())
                 .description(buildDescription(tool))
-                .inputSchema(EMPTY_OBJECT_SCHEMA)
+                .inputSchema(schema)
                 .build();
         return new NonExecutingToolCallback(definition);
     }
