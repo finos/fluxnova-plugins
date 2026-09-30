@@ -166,6 +166,101 @@ class AgentConfigExtractorTest {
         assertEquals("llama3.1", result.get().model());
     }
 
+    // extract(Element, ...) userPrompt
+
+    private AgentConfig extractWithConfigAttributes(String attributes) {
+        String bpmn = wrapInProcess("""
+                <adHocSubProcess id="myAgent">
+                  <extensionElements>
+                    <agent:config provider="ollama" model="llama3.1" %s/>
+                  </extensionElements>
+                </adHocSubProcess>
+                """.formatted(attributes));
+        return extractor.extract(parseAdHocSubProcess(bpmn), PROCESS_DEFINITION_ID).orElseThrow();
+    }
+
+    @Test
+    void extract_whenUserPromptPresent_returnsUserPrompt() {
+        AgentConfig config = extractWithConfigAttributes(
+                "systemPrompt=\"You are a credit analyst.\" userPrompt=\"Assess the loan application.\"");
+
+        assertEquals("Assess the loan application.", config.userPrompt());
+        assertEquals("You are a credit analyst.", config.systemPrompt());
+    }
+
+    @Test
+    void extract_whenUserPromptAbsent_returnsNullUserPrompt() {
+        AgentConfig config = extractWithConfigAttributes("systemPrompt=\"You are an assistant.\"");
+
+        assertNull(config.userPrompt());
+    }
+
+    @Test
+    void extract_whenUserPromptEmpty_returnsEmptyUserPrompt() {
+        // Blank values are passed through raw; the orchestrator applies the default fallback.
+        AgentConfig config = extractWithConfigAttributes("userPrompt=\"\"");
+
+        assertEquals("", config.userPrompt());
+    }
+
+    @Test
+    void extract_whenUserPromptContainsExpression_keepsRawExpressionText() {
+        AgentConfig config = extractWithConfigAttributes(
+                "userPrompt=\"Investigate alert ${alertId} for ${customerName}\"");
+
+        assertEquals("Investigate alert ${alertId} for ${customerName}", config.userPrompt());
+    }
+
+    @Test
+    void extract_whenUserPromptHasEncodedLineBreaks_preservesLineBreaks() {
+        AgentConfig config = extractWithConfigAttributes(
+                "userPrompt=\"Line one&#10;Line two&#10;&#10;Line four\"");
+
+        assertEquals("Line one\nLine two\n\nLine four", config.userPrompt());
+    }
+
+    @Test
+    void extract_whenUserPromptHasLiteralLineBreaks_normalisesThemPerXmlSpec() {
+        // XML attribute-value normalisation turns literal line breaks into spaces.
+        // Modelers must encode line breaks as &#10; to preserve them (see test above).
+        AgentConfig config = extractWithConfigAttributes("userPrompt=\"Line one\nLine two\"");
+
+        assertEquals("Line one Line two", config.userPrompt());
+    }
+
+    @Test
+    void extract_whenUserPromptHasXmlEscapedSpecialCharacters_unescapesThem() {
+        AgentConfig config = extractWithConfigAttributes(
+                "userPrompt=\"Check &lt;amount&gt; &amp; &quot;status&quot; for O&apos;Brien — 100% ✓\"");
+
+        assertEquals("Check <amount> & \"status\" for O'Brien — 100% ✓", config.userPrompt());
+    }
+
+    @Test
+    void extract_whenUserPromptUsesSingleQuotedAttribute_keepsDoubleQuotes() {
+        AgentConfig config = extractWithConfigAttributes(
+                "userPrompt='Say \"hello\" to ${name}'");
+
+        assertEquals("Say \"hello\" to ${name}", config.userPrompt());
+    }
+
+    @Test
+    void extractAll_whenUserPromptPresent_populatesUserPrompt() {
+        String bpmn = wrapInProcess("""
+                <adHocSubProcess id="myAgent">
+                  <extensionElements>
+                    <agent:config provider="ollama" model="llama3.1" userPrompt="Start the review."/>
+                  </extensionElements>
+                </adHocSubProcess>
+                """);
+
+        List<AgentConfig> results = extractor.extractAll(
+                new ByteArrayInputStream(bpmn.getBytes(StandardCharsets.UTF_8)), PROCESS_DEFINITION_ID);
+
+        assertEquals(1, results.size());
+        assertEquals("Start the review.", results.get(0).userPrompt());
+    }
+
     // extractAll(...) tool-scope discovery
 
     @Test

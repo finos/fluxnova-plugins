@@ -19,6 +19,7 @@ import org.finos.fluxnova.bpm.engine.ai.agent.model.AgentConfig;
 import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.model.AgentOrchestrationConfig;
 import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.model.ToolResult;
 import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.service.AgentTerminationHandler;
+import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.service.PromptExpressionResolver;
 import org.finos.fluxnova.bpm.engine.ai.agent.service.ToolInvocationService;
 import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.state.AgentStateManager;
 import org.finos.fluxnova.bpm.engine.ai.agent.registry.AgentConfigRegistry;
@@ -43,6 +44,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -71,13 +73,19 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
     public static final String TYPE = "agent-orchestration-step";
 
     /**
-     * Seed user turn for the first LLM call. Without it, the entry-turn conversation is
-     * system-only (system prompt + context), which many models — local ones especially —
-     * won't act on: they narrate instead of emitting tool calls. A user turn kicks off the loop.
-     * TODO: make this configurable via an agent:config attribute (e.g. task/userPrompt).
+     * Default seed user turn for the first LLM call, used when {@code agent:config} has no
+     * {@code userPrompt} or it resolves to blank / fails to evaluate. Without a user turn, the
+     * entry-turn conversation is system-only (system prompt + context), which many models —
+     * local ones especially — won't act on: they narrate instead of emitting tool calls.
      */
-    private static final String INITIAL_USER_PROMPT =
+    static final String INITIAL_USER_PROMPT =
             "Begin. Use the available tools to complete the task, then respond and stop.";
+
+    /**
+     * Suffix of the process-instance variable holding the agent's final answer:
+     * {@code {agentElementId}Result}, e.g. {@code agentInvestigationResult}.
+     */
+    static final String RESULT_VARIABLE_SUFFIX = "Result";
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
@@ -89,6 +97,7 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
     private final ToolInvocationService toolInvocationService;
     private final AgentStateManager stateManager;
     private final AgentTerminationHandler agentTerminationHandler;
+    private final PromptExpressionResolver promptExpressionResolver;
 
     public AgentOrchestrationJobHandler(AgentConfigRegistry agentConfigRegistry,
             AgentToolCatalogueRegistry toolCatalogueRegistry,
@@ -96,6 +105,19 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
             LlmService llmService,
             ToolInvocationService toolInvocationService, AgentStateManager stateManager,
             AgentTerminationHandler agentTerminationHandler) {
+        this(agentConfigRegistry, toolCatalogueRegistry, contextSpecRegistry, contextResolver,
+                llmService, toolInvocationService, stateManager, agentTerminationHandler,
+                new PromptExpressionResolver());
+    }
+
+    public AgentOrchestrationJobHandler(AgentConfigRegistry agentConfigRegistry,
+            AgentToolCatalogueRegistry toolCatalogueRegistry,
+            AgentContextSpecRegistry contextSpecRegistry, AgentContextResolver contextResolver,
+            LlmService llmService,
+            ToolInvocationService toolInvocationService, AgentStateManager stateManager,
+            AgentTerminationHandler agentTerminationHandler,
+            PromptExpressionResolver promptExpressionResolver) {
+        this.promptExpressionResolver = promptExpressionResolver;
         this.agentConfigRegistry = agentConfigRegistry;
         this.toolCatalogueRegistry = toolCatalogueRegistry;
         this.contextSpecRegistry = contextSpecRegistry;
@@ -170,12 +192,6 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
         history = appendToolResults(history, buffer);
         stateManager.clearToolResultBuffer(runtimeService, scopeExecutionId);
 
-        // First turn: history is empty and the mapper would send only system messages.
-        // Seed a user turn so the model actually engages the tools.
-        if (history.isEmpty()) {
-            history.add(ConversationEntry.user(INITIAL_USER_PROMPT));
-        }
-
         AgentConfig agentConfig = agentConfigRegistry
                 .resolve(repositoryService, execution.getProcessDefinitionId(), execution.getActivityId())
                 .orElseThrow(() -> new IllegalStateException("No AgentConfig found for "
@@ -202,6 +218,12 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
                         execution.getActivityId(), List.of()));
         ResolvedContext context = contextResolver.resolve(runtimeService, scopeExecutionId, contextSpec);
 
+        // First turn: history is empty and the mapper would send only system messages.
+        // Seed a user turn so the model actually engages the tools. It is persisted with the
+        // history, so the configured userPrompt is evaluated once per agent run.
+        if (history.isEmpty()) {
+            history.add(ConversationEntry.user(resolveUserPrompt(agentConfig, execution)));
+        }
 
         LlmResponse response =
                 llmService.call(agentConfig, catalogue, context, history);
@@ -210,12 +232,42 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
 
         if (response.toolCalls().isEmpty()) {
             LOG.debug("No tool calls returned, triggering termination for scope '{}'", scopeExecutionId);
+            storeFinalResponse(runtimeService, execution, response.assistantText());
             // Complete the process if tool call is empty
             agentTerminationHandler.complete(runtimeService, scopeExecutionId);
             return;
         }
         LOG.debug("Dispatching scope '{}': toolCalls='{}'", scopeExecutionId, response.toolCalls());
         dispatch(runtimeService, scopeExecutionId, catalogue, response.toolCalls(), execution, commandContext);
+    }
+
+    /**
+     * Stores the LLM's final answer as {@code {agentElementId}Result} on the process instance,
+     * so it survives completion of the agent scope. Mirrors the {@code {activityId}Result}
+     * convention used for A2A remote agent results.
+     */
+    private void storeFinalResponse(RuntimeService runtimeService, ExecutionEntity execution,
+            String finalText) {
+        String variableName = execution.getActivityId() + RESULT_VARIABLE_SUFFIX;
+        runtimeService.setVariable(execution.getProcessInstanceId(), variableName, finalText);
+        LOG.debug("Stored final agent response in variable '{}' on process instance '{}'",
+                variableName, execution.getProcessInstanceId());
+    }
+
+    /**
+     * Resolves the configured {@code userPrompt} against the execution, falling back to
+     * {@link #INITIAL_USER_PROMPT} when it is absent, blank, fails to evaluate or evaluates to blank.
+     */
+    private String resolveUserPrompt(AgentConfig agentConfig, ExecutionEntity execution) {
+        Optional<String> resolved =
+                promptExpressionResolver.resolve(agentConfig.userPrompt(), execution, "userPrompt");
+        String source = resolved.isPresent() ? "configured userPrompt"
+                : agentConfig.userPrompt() == null ? "default (no userPrompt configured)"
+                : "default (configured userPrompt resolved to blank or failed)";
+        String prompt = resolved.orElse(INITIAL_USER_PROMPT);
+        LOG.debug("Agent '{}' (process instance '{}'): first user message from {}:\n{}",
+                execution.getActivityId(), execution.getProcessInstanceId(), source, prompt);
+        return prompt;
     }
 
     @Override

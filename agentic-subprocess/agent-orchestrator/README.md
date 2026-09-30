@@ -8,7 +8,7 @@ Drives the per-turn loop for an agentic subprocess: calls the LLM, dispatches th
 - Fires an asynchronous job on scope entry that begins the first LLM turn
 - Fires an asynchronous job on each tool activity completion that feeds the result back and, once all pending tools are done, drives the next turn
 - Manages per-execution agent state (conversation history, pending tool calls, result buffer) as process-local variables
-- Completes the scope when the LLM returns a response with no tool calls
+- Completes the scope when the LLM returns a response with no tool calls, storing the LLM's final answer as a process-instance variable
 
 ## Prerequisites
 
@@ -45,7 +45,7 @@ flowchart TD
     B --> C[AgentOrchestrationJobHandler\nresolves config, catalogue, context]
     C --> D[LlmService.call]
     D --> E{Tool calls\nrequested?}
-    E -- no  --> F[AgentTerminationHandler.complete\nscope completes]
+    E -- no  --> F[store final answer as elementId + Result\nAgentTerminationHandler.complete\nscope completes]
     E -- yes --> G[ToolInvocationService.invoke\nfor each tool]
     G --> H[Activities run]
     H --> I[SubprocessToolCompletionListener\nenqueues completion job per activity]
@@ -56,6 +56,20 @@ flowchart TD
     style A fill:#e1f5ff
     style F fill:#e8f5e9
     style K fill:#fff4e1
+```
+
+### Agent result variable
+
+When the LLM returns a response with no tool calls, the orchestrator stores that response's text on the **process instance** before completing the scope, so downstream activities can read it:
+
+| Variable | Scope | Type | Description |
+|---|---|---|---|
+| `{agentElementId}Result` | Process instance | String | The LLM's final answer, e.g. `agentInvestigationResult` for `<adHocSubProcess id="agentInvestigation">` |
+
+This follows the same `{activityId}Result` convention as A2A remote agent results (e.g. `amlAgentResult`). The value is the model's final reply as plain text; the plugin does not parse or validate it. If your prompts instruct the model to answer in a specific format (for example, "finish with a single line of JSON"), that format appears in this variable and can be parsed by downstream activities. Models do not always follow format instructions exactly, so downstream parsing should handle unexpected text. The variable is not set when the scope ends without an LLM call (for example, an empty tool catalogue).
+
+```java
+String verdict = (String) runtimeService.getVariable(processInstanceId, "agentInvestigationResult");
 ```
 
 ### State variables

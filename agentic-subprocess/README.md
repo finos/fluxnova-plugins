@@ -37,7 +37,8 @@ Then annotate an ad-hoc subprocess in your BPMN:
         <agent:config
           provider="ollama"
           model="llama3"
-          systemPrompt="You are a helpful assistant."/>
+          systemPrompt="You are a helpful assistant."
+          userPrompt="Look up customer ${customerId} and email them a summary."/>
         <agent:context>
           <agent:variable name="customerId"/>
         </agent:context>
@@ -51,6 +52,8 @@ Then annotate an ad-hoc subprocess in your BPMN:
 
 </bpmn:definitions>
 ```
+
+`userPrompt` supports `${...}` expressions evaluated against each process instance's variables. See [`agent-config`](agent-config/README.md#user-prompt-and-expressions) for details.
 
 ## Architecture
 

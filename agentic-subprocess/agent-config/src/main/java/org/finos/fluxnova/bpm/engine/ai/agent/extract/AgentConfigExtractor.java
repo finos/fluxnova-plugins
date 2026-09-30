@@ -80,13 +80,16 @@ public class AgentConfigExtractor {
         String provider = config.attribute("provider");
         String model = config.attribute("model");
         String systemPrompt = config.attribute("systemPrompt");
+        // Kept as raw text; ${...} expressions are evaluated per process instance at runtime.
+        String userPrompt = config.attribute("userPrompt");
 
         String toolScopeElementId = config.attribute("toolScopeElementId");
         if (isBlankOrNull(toolScopeElementId)) {
             toolScopeElementId = elementId;
         }
 
-        return Optional.of(new AgentConfig(processDefinitionId, elementId, provider, model, systemPrompt, toolScopeElementId));
+        return Optional.of(new AgentConfig(processDefinitionId, elementId, provider, model,
+                systemPrompt, toolScopeElementId, userPrompt));
     }
 
     private static boolean isBlankOrNull(String value) {
