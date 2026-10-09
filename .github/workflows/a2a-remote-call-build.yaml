@@ -1,0 +1,24 @@
+name: "A2A Remote Call Build"
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - "a2a-remote-call/**"
+      - ".github/**"
+      - "pom.xml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.ref == 'refs/heads/main' && format('ci-default-branch-{0}-{1}', github.sha, github.workflow) ||
+    format('ci-pr-{0}-{1}', github.ref, github.workflow) }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    uses: ./.github/workflows/common-build.yaml
+    with:
+      project-id: "a2a-remote-call"
+    secrets: inherit
