@@ -69,6 +69,19 @@ The orchestrator stores all transient state as process-local variables on the sc
 | `_agentToolResultBuffer` | JSON-serialised list of results received since the last LLM call |
 | `_agentToolCallQueue` | JSON-serialised list of queued tool calls |
 
+## Dynamic provider / model / prompt
+
+`agent:config` attributes may use process-engine expressions. Definition extraction stores the raw text; each orchestration turn evaluates it against the current execution before calling the LLM:
+
+```xml
+<agent:config
+    provider="${llmProvider}"
+    model="${llmModel}"
+    systemPrompt="You are reviewing application ${applicationId}." />
+```
+
+Literal values continue to work unchanged. Composite expressions (mixed literal + `${...}`) are supported for `systemPrompt` as well. If `provider` or `model` resolves to blank, the orchestration job fails with `IllegalStateException`.
+
 ## Customisation
 
 ### Termination strategy
@@ -87,6 +100,7 @@ public AgentTerminationHandler myTerminationHandler() {
 | Class | Package | Role |
 |---|---|---|
 | `AgentOrchestrationJobHandler` | `...orchestrator.job` | Job handler that drives a single orchestration turn |
+| `AgentConfigExpressionResolver` | `...orchestrator.config` | Evaluates provider/model/systemPrompt expressions per instance |
 | `AgentStateManager` | `...orchestrator.state` | Reads and writes per-execution agent state as process variables |
 | `AgentSubprocessEntryListener` | `...orchestrator.engine` | Execution listener that enqueues the first job on scope entry |
 | `SubprocessToolCompletionListener` | `...orchestrator.engine` | Execution listener that enqueues a completion job when a tool activity ends |

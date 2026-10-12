@@ -13,10 +13,12 @@ import org.springframework.ai.chat.client.advisor.ToolCallingAdvisor;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.ai.tool.ToolCallback;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -85,6 +87,10 @@ public class SpringAiLlmService implements LlmService {
                 .build();
 
         ChatClient.ChatClientRequestSpec spec = client.prompt().messages(messages);
+        ChatOptions.Builder<?> options = buildRequestOptions(agentConfig);
+        if (options != null) {
+            spec = spec.options(options);
+        }
         if (!toolCallbacks.isEmpty()) {
             spec = spec.toolCallbacks(toolCallbacks);
         }
@@ -112,5 +118,55 @@ public class SpringAiLlmService implements LlmService {
         }
 
         return response;
+    }
+
+    /**
+     * Builds provider-specific chat options for model selection and prompt caching.
+     *
+     * <p>Provider-specific options (Anthropic cache strategy, OpenAI prompt cache key) are
+     * applied only when the corresponding Spring AI provider module is on the classpath.
+     * Each provider's logic lives in its own class file ({@link AnthropicChatOptionsFactory},
+     * {@link OpenAiChatOptionsFactory}) which is never loaded by the JVM if the provider
+     * JAR is absent — avoiding {@link NoClassDefFoundError} in projects that don't use
+     * that provider.</p>
+     */
+    static ChatOptions.Builder<?> buildRequestOptions(AgentConfig agentConfig) {
+        String provider = normalize(agentConfig.provider());
+        String model = blankToNull(agentConfig.model());
+        String cacheStrategy = blankToNull(agentConfig.cacheStrategy());
+        String promptCacheKey = blankToNull(agentConfig.promptCacheKey());
+
+        if ("anthropic".equals(provider)
+                && isClassPresent("org.springframework.ai.anthropic.AnthropicChatOptions")) {
+            return new AnthropicChatOptionsFactory().build(model, cacheStrategy, promptCacheKey);
+        }
+
+        if ("openai".equals(provider)
+                && isClassPresent("org.springframework.ai.openai.OpenAiChatOptions")) {
+            return new OpenAiChatOptionsFactory().build(model, cacheStrategy, promptCacheKey);
+        }
+
+        // Generic fallback: model override only
+        if (model == null) {
+            return null;
+        }
+        return ChatOptions.builder().model(model);
+    }
+
+    private static boolean isClassPresent(String className) {
+        try {
+            Class.forName(className, false, SpringAiLlmService.class.getClassLoader());
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
+
+    private static String normalize(String provider) {
+        return provider == null ? "" : provider.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }

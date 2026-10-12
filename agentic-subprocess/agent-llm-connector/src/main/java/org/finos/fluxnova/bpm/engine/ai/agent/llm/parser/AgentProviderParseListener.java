@@ -13,6 +13,13 @@ import java.util.StringJoiner;
 
 import static org.finos.fluxnova.bpm.engine.shared.agent.AgentModelConstants.AGENT_NS;
 
+/**
+ * Validates that literal {@code agent:config provider} values resolve to a registered
+ * {@link AgentProviderRegistry} entry at deploy time.
+ *
+ * <p>Providers that contain process-engine expressions (e.g. {@code ${creditRiskAgentProvider}})
+ * are skipped here — they are evaluated per instance before the LLM call.
+ */
 public class AgentProviderParseListener extends AbstractBpmnParseListener {
 
     private final AgentProviderRegistry registry;
@@ -43,7 +50,7 @@ public class AgentProviderParseListener extends AbstractBpmnParseListener {
                     continue;
                 }
                 String provider = config.attribute("provider");
-                if (provider == null || provider.isBlank()) {
+                if (provider == null || provider.isBlank() || isExpression(provider)) {
                     continue;
                 }
                 if (!registry.has(provider)) {
@@ -63,5 +70,13 @@ public class AgentProviderParseListener extends AbstractBpmnParseListener {
                     "Invalid provider reference(s) in agent:config: " + joiner,
                     firstOffending);
         }
+    }
+
+    /**
+     * True when {@code provider} is (or contains) a process-engine expression that must be
+     * resolved at orchestration time rather than validated against the registry at deploy.
+     */
+    static boolean isExpression(String provider) {
+        return provider.contains("${") || provider.contains("#{");
     }
 }

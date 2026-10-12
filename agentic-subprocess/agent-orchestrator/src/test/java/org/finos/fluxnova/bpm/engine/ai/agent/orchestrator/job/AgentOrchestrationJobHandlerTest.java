@@ -18,6 +18,8 @@ import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.service.AgentTerminat
 import org.finos.fluxnova.bpm.engine.ai.agent.service.ToolInvocationService;
 import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.state.AgentStateManager;
 import org.finos.fluxnova.bpm.engine.ai.agent.registry.AgentConfigRegistry;
+import org.finos.fluxnova.bpm.engine.impl.el.Expression;
+import org.finos.fluxnova.bpm.engine.impl.el.ExpressionManager;
 import org.finos.fluxnova.bpm.engine.impl.interceptor.CommandContext;
 import org.finos.fluxnova.bpm.engine.impl.persistence.entity.ExecutionEntity;
 import org.finos.fluxnova.bpm.engine.impl.persistence.entity.JobManager;
@@ -124,6 +126,16 @@ class AgentOrchestrationJobHandlerTest {
                 when(stateManager.loadToolResultBuffer(runtimeService, SCOPE_EXECUTION_ID))
                                 .thenReturn(new ArrayList<>());
                 when(stateManager.loadHistory(runtimeService, SCOPE_EXECUTION_ID)).thenReturn(new ArrayList<>());
+        }
+
+        private static void stubExpression(
+                        ExpressionManager expressionManager,
+                        ExecutionEntity execution,
+                        String expressionText,
+                        Object value) {
+                Expression expression = mock(Expression.class);
+                when(expressionManager.createExpression(expressionText)).thenReturn(expression);
+                when(expression.getValue(execution)).thenReturn(value);
         }
 
         @Test
@@ -276,6 +288,66 @@ class AgentOrchestrationJobHandlerTest {
                         assertThrows(IllegalStateException.class,
                                         () -> handler.execute(AgentOrchestrationConfig.forEntry(),
                                                         execution, commandContext, null));
+                }
+
+                @Test
+                void execute_resolvesAgentConfigExpressionsBeforeLlmCall() {
+                        AgentConfig template = new AgentConfig(
+                                        PROC_DEF_ID,
+                                        ELEMENT_ID,
+                                        "${llmProvider}",
+                                        "${llmModel}",
+                                        "Review ${loanPurpose}",
+                                        ELEMENT_ID);
+                        when(agentConfigRegistry.resolve(repositoryService, PROC_DEF_ID, ELEMENT_ID))
+                                        .thenReturn(Optional.of(template));
+                        when(toolCatalogueRegistry.resolve(repositoryService, PROC_DEF_ID, ELEMENT_ID))
+                                        .thenReturn(Optional.of(toolCatalogue));
+                        when(contextSpecRegistry.resolve(repositoryService, PROC_DEF_ID, ELEMENT_ID))
+                                        .thenReturn(Optional.of(contextSpec));
+                        stubEmptyState();
+
+                        ExpressionManager expressionManager = mock(ExpressionManager.class);
+                        stubExpression(expressionManager, execution, "${llmProvider}", "anthropic");
+                        stubExpression(expressionManager, execution, "${llmModel}", "claude-sonnet-4-6");
+                        stubExpression(
+                                        expressionManager,
+                                        execution,
+                                        "Review ${loanPurpose}",
+                                        "Review home improvement");
+
+                        handler = new AgentOrchestrationJobHandler(
+                                        agentConfigRegistry,
+                                        toolCatalogueRegistry,
+                                        contextSpecRegistry,
+                                        contextResolver,
+                                        llmService,
+                                        toolInvocationService,
+                                        stateManager,
+                                        terminationHandler,
+                                        () -> expressionManager);
+
+                        ResolvedContext resolvedContext = new ResolvedContext(Map.of());
+                        when(contextResolver.resolve(runtimeService, SCOPE_EXECUTION_ID, contextSpec))
+                                        .thenReturn(resolvedContext);
+
+                        AgentConfig expected = new AgentConfig(
+                                        PROC_DEF_ID,
+                                        ELEMENT_ID,
+                                        "anthropic",
+                                        "claude-sonnet-4-6",
+                                        "Review home improvement",
+                                        ELEMENT_ID);
+                        LlmResponse response = new LlmResponse(
+                                        "Done",
+                                        List.of(),
+                                        List.of(ConversationEntry.assistant("Done", List.of())));
+                        when(llmService.call(eq(expected), eq(toolCatalogue), eq(resolvedContext), anyList()))
+                                        .thenReturn(response);
+
+                        handler.execute(AgentOrchestrationConfig.forEntry(), execution, commandContext, null);
+
+                        verify(llmService).call(eq(expected), eq(toolCatalogue), eq(resolvedContext), anyList());
                 }
         }
 
