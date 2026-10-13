@@ -1,0 +1,134 @@
+name: License Scanning
+
+on:
+  schedule:
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+  workflow_call:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: Scan Licenses
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        project:
+          - fluxnova-backward-compatibility-plugin
+          - agentic
+          - agentic-subprocess
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: 'temurin'
+
+      - name: Resolve project path
+        id: project
+        run: |
+          PROJECT="${{ matrix.project }}"
+          MAP_FILE=".github/config/projects.yaml"
+          PROJECT_PATH=$(yq -r ".projects.\"$PROJECT\".path // \"\"" "$MAP_FILE")
+          if [[ -z "$PROJECT_PATH" || "$PROJECT_PATH" == "null" ]]; then
+            echo "ERROR: Unknown project '$PROJECT' in $MAP_FILE"
+            exit 1
+          fi
+          echo "path=$PROJECT_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-license-${{ hashFiles(format('{0}/pom.xml', steps.project.outputs.path)) }}
+          restore-keys: |
+            ${{ runner.os }}-maven-license-
+            ${{ runner.os }}-maven-
+
+      - name: Generate third-party license report
+        run: |
+          mvn -B -f ${{ steps.project.outputs.path }}/pom.xml \
+            org.codehaus.mojo:license-maven-plugin:2.4.0:aggregate-add-third-party \
+            -Dlicense.includedScopes=compile,runtime \
+            -Dlicense.excludedScopes=test,provided,system \
+            -Dlicense.sortArtifactByName=true \
+            -Dlicense.outputDirectory=target \
+            -Dlicense.thirdPartyFilename=THIRD-PARTY.txt
+
+      - name: Validate licenses against FINOS Category A policy
+        working-directory: ${{ steps.project.outputs.path }}
+        shell: bash
+        run: |
+          THIRD_PARTY_FILE="target/THIRD-PARTY.txt"
+          
+          if [[ ! -f "$THIRD_PARTY_FILE" ]]; then
+            echo "No third-party dependencies found (or file not generated)"
+            exit 0
+          fi
+          
+          echo "=== Third-party licenses for ${{ matrix.project }} ==="
+          cat "$THIRD_PARTY_FILE"
+          echo ""
+          echo "=== Validating against FINOS Category A allowed licenses ==="
+          
+          # FINOS Category A approved license patterns plus EPL (case-insensitive grep -E patterns)
+          # Reference: https://community.finos.org/docs/governance/software-projects/license-categories/
+          # Category A: Apache-2.0, Apache-1.1, MIT, ISC, BSD-2-Clause, BSD-3-Clause, 0BSD, Unlicense,
+          #             Python-2.0, PostgreSQL, BSL-1.0, W3C, WTFPL, Xnet, NCSA, ZPL-2.0, zlib,
+          #             BlueOak-1.0.0, CC0-1.0, CC-BY-4.0
+          # Also allowed: EPL-1.0, EPL-2.0 (Eclipse Public License) per FINOS policy
+          # Category X (NOT allowed): GPL, LGPL (unless dual-licensed with an allowed option)
+          # Note: Dual-licensed dependencies (e.g., EPL-2.0 OR LGPL-2.1) pass if ANY license is allowed
+          ALLOWED_PATTERN='Apache|MIT|ISC|BSD|Unlicense|Python-2|PostgreSQL|BSL-1|Boost Software License 1|W3C|WTFPL|Xnet|NCSA|ZPL-2|zlib|BlueOak-1|CC0-1|CC-BY-4|Public Domain|EPL|Eclipse Public License'
+          
+          FAILED=0
+          CHECKED=0
+          
+          # Process each line in THIRD-PARTY.txt
+          while IFS= read -r line; do
+            # Skip empty lines and header lines
+            [[ -z "$line" ]] && continue
+            [[ "$line" == *"Lists of"* ]] && continue
+            
+            # Trim leading whitespace and extract license from parentheses
+            trimmed="${line#"${line%%[![:space:]]*}"}"
+            if [[ "$trimmed" =~ ^\(([^\)]+)\) ]]; then
+              LICENSE="${BASH_REMATCH[1]}"
+              ARTIFACT="${trimmed#*) }"
+              CHECKED=$((CHECKED + 1))
+              
+              # Check if license matches any allowed pattern
+              if ! echo "$LICENSE" | grep -qiE "$ALLOWED_PATTERN"; then
+                echo "DISALLOWED: $LICENSE -> $ARTIFACT"
+                FAILED=$((FAILED + 1))
+              fi
+            fi
+          done < "$THIRD_PARTY_FILE"
+          
+          echo ""
+          echo "=== Summary ==="
+          echo "Checked: $CHECKED dependencies"
+          echo "Disallowed: $FAILED"
+          
+          if [[ $FAILED -gt 0 ]]; then
+            echo ""
+            echo "ERROR: Found $FAILED dependencies with disallowed licenses."
+            echo "Please review and either:"
+            echo "  1. Replace the dependency with an alternative that has an approved license"
+            echo "  2. Request an exception via FINOS governance if the license is acceptable"
+            exit 1
+          fi
+          
+          echo "All licenses are compliant with FINOS Category A policy."

@@ -14,16 +14,18 @@ env:
 
 permissions:
   contents: read
-  packages: write
-  actions: read
-  pull-requests: write
-  attestations: write
-  id-token: write
 
 jobs:
   build:
     name: Build ${{ inputs.project-id }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      actions: read
+      pull-requests: write
+      attestations: write
+      id-token: write
     outputs:
       project-path: ${{ steps.project-meta.outputs.project-path }}
     steps:
