@@ -54,12 +54,18 @@ on:
         default: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
+  license-check:
+    name: License Check
+    uses: ./.github/workflows/license-scanning.yml
+
   validate-branch:
     name: "Validate branch And Obtain Project Metadata"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       branch-name: ${{ steps.validate.outputs.branch-name }}
       branch-type: ${{ steps.validate.outputs.branch-type }}
@@ -152,7 +158,9 @@ jobs:
   publish-central:
     name: "Release ${{ inputs.project }}"
     runs-on: ubuntu-latest
-    needs: validate-branch
+    needs: [license-check, validate-branch]
+    permissions:
+      contents: write
     outputs:
       release-version: ${{ steps.set-vars.outputs.release-version }}
       development-version: ${{ steps.set-vars.outputs.development-version }}
