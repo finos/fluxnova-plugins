@@ -44,5 +44,10 @@
             <artifactId>fluxnova-engine-plugins-ai-agent-orchestrator</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.finos.fluxnova.bpm</groupId>
+            <artifactId>fluxnova-engine-plugins-ai-a2a-remote-call</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
     </dependencies>
 </project>

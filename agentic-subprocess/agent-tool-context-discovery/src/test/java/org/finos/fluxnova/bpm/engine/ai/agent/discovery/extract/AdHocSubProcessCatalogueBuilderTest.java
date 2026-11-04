@@ -1,6 +1,9 @@
 package org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract;
 
+import org.finos.fluxnova.bpm.engine.ai.a2a.model.A2aRemoteCallConfig;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolCatalogue;
+import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolEntry;
+import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolType;
 import org.finos.fluxnova.bpm.engine.impl.core.variable.mapping.InputParameter;
 import org.finos.fluxnova.bpm.engine.impl.core.variable.mapping.IoMapping;
 import org.finos.fluxnova.bpm.engine.impl.core.variable.mapping.OutputParameter;
@@ -365,6 +368,149 @@ class AdHocSubProcessCatalogueBuilderTest {
 
             assertEquals("proc:1", catalogue.processDefinitionId());
             assertEquals("agent1", catalogue.elementId());
+        }
+    }
+
+    @Nested
+    class A2aServiceTasks {
+
+        @Test
+        void build_mixedScope_classifiesCorrectly() {
+            ActivityImpl scope = createScope("adHocScope");
+
+            // A2A task
+            ActivityImpl a2aTask = addActivity(scope, "amlAgent", "serviceTask", "AML Agent");
+            a2aTask.setProperty("a2aRemoteCallConfig",
+                    new A2aRemoteCallConfig(
+                            "http://localhost:8085/tasks/send", null,
+                            "AML Investigation Agent", "Investigates AML alerts.",
+                            "aml-agent"));
+
+            // Local BPMN task
+            ActivityImpl bpmnTask = addActivity(scope, "enrichData", "serviceTask", "Enrich Data");
+            bpmnTask.setProperty("documentation", "Enriches transaction data.");
+
+            AgentToolCatalogue catalogue = builder.build(scope);
+
+            assertEquals(2, catalogue.tools().size());
+
+            AgentToolEntry a2aEntry = catalogue.tools().stream()
+                    .filter(e -> e.elementId().equals("amlAgent")).findFirst().orElseThrow();
+            AgentToolEntry bpmnEntry = catalogue.tools().stream()
+                    .filter(e -> e.elementId().equals("enrichData")).findFirst().orElseThrow();
+
+            assertEquals(AgentToolType.REMOTE_AGENT, a2aEntry.type());
+            assertEquals("AML Investigation Agent", a2aEntry.name());
+            assertEquals("Investigates AML alerts.", a2aEntry.description());
+
+            assertEquals(AgentToolType.BPMN_ACTIVITY, bpmnEntry.type());
+            assertEquals("Enrich Data", bpmnEntry.name());
+            assertEquals("Enriches transaction data.", bpmnEntry.description());
+        }
+
+        @Test
+        void build_allA2aScope_allClassifiedAsRemoteAgent() {
+            ActivityImpl scope = createScope("adHocScope");
+
+            ActivityImpl agent1 = addActivity(scope, "agent1", "serviceTask", "Agent One");
+            agent1.setProperty("a2aRemoteCallConfig",
+                    new A2aRemoteCallConfig(
+                            "http://host1/tasks/send", null,
+                            "First Remote Agent", "Does first thing.",
+                            "agent-1"));
+
+            ActivityImpl agent2 = addActivity(scope, "agent2", "serviceTask", "Agent Two");
+            agent2.setProperty("a2aRemoteCallConfig",
+                    new A2aRemoteCallConfig(
+                            "http://host2/tasks/send", null,
+                            "Second Remote Agent", "Does second thing.",
+                            "agent-2"));
+
+            AgentToolCatalogue catalogue = builder.build(scope);
+
+            assertEquals(2, catalogue.tools().size());
+            for (AgentToolEntry entry : catalogue.tools()) {
+                assertEquals(AgentToolType.REMOTE_AGENT, entry.type());
+            }
+
+            AgentToolEntry entry1 = catalogue.tools().get(0);
+            assertEquals("agent1", entry1.elementId());
+            assertEquals("First Remote Agent", entry1.name());
+            assertEquals("Does first thing.", entry1.description());
+
+            AgentToolEntry entry2 = catalogue.tools().get(1);
+            assertEquals("agent2", entry2.elementId());
+            assertEquals("Second Remote Agent", entry2.name());
+            assertEquals("Does second thing.", entry2.description());
+        }
+
+        @Test
+        void build_emptyScope_returnsEmptyCatalogue() {
+            ActivityImpl scope = createScope("adHocScope");
+
+            AgentToolCatalogue catalogue = builder.build(scope);
+
+            assertTrue(catalogue.tools().isEmpty());
+        }
+
+        @Test
+        void build_a2aWithBlankConfigName_fallsBackToActivityName() {
+            ActivityImpl scope = createScope("adHocScope");
+
+            ActivityImpl a2aTask = addActivity(scope, "kycAgent", "serviceTask", "KYC Verification Agent");
+            a2aTask.setProperty("a2aRemoteCallConfig",
+                    new A2aRemoteCallConfig(
+                            "http://localhost:9090/tasks/send", null,
+                            "", "Performs KYC verification checks.",
+                            "kyc-agent"));
+
+            AgentToolCatalogue catalogue = builder.build(scope);
+
+            assertEquals(1, catalogue.tools().size());
+            AgentToolEntry entry = catalogue.tools().get(0);
+            assertEquals(AgentToolType.REMOTE_AGENT, entry.type());
+            assertEquals("KYC Verification Agent", entry.name());
+            assertEquals("Performs KYC verification checks.", entry.description());
+        }
+
+        @Test
+        void build_a2aWithNullConfigName_fallsBackToActivityName() {
+            ActivityImpl scope = createScope("adHocScope");
+
+            ActivityImpl a2aTask = addActivity(scope, "fraudAgent", "serviceTask", "Fraud Detection Agent");
+            a2aTask.setProperty("a2aRemoteCallConfig",
+                    new A2aRemoteCallConfig(
+                            "http://localhost:7070/tasks/send", null,
+                            null, "Detects fraudulent transactions."));
+
+            AgentToolCatalogue catalogue = builder.build(scope);
+
+            assertEquals(1, catalogue.tools().size());
+            AgentToolEntry entry = catalogue.tools().get(0);
+            assertEquals(AgentToolType.REMOTE_AGENT, entry.type());
+            assertEquals("Fraud Detection Agent", entry.name());
+            assertEquals("Detects fraudulent transactions.", entry.description());
+        }
+
+        @Test
+        void build_a2aWithBlankConfigDescription_fallsBackToDocumentation() {
+            ActivityImpl scope = createScope("adHocScope");
+
+            ActivityImpl a2aTask = addActivity(scope, "sanctionsAgent", "serviceTask", "Sanctions Agent");
+            a2aTask.setProperty("documentation", "Checks sanctions lists and PEP databases.");
+            a2aTask.setProperty("a2aRemoteCallConfig",
+                    new A2aRemoteCallConfig(
+                            "http://localhost:6060/tasks/send", null,
+                            "Sanctions Screening Agent", "",
+                            "sanctions-agent"));
+
+            AgentToolCatalogue catalogue = builder.build(scope);
+
+            assertEquals(1, catalogue.tools().size());
+            AgentToolEntry entry = catalogue.tools().get(0);
+            assertEquals(AgentToolType.REMOTE_AGENT, entry.type());
+            assertEquals("Sanctions Screening Agent", entry.name());
+            assertEquals("Checks sanctions lists and PEP databases.", entry.description());
         }
     }
 

@@ -57,15 +57,15 @@ class AgentStateManagerTest {
 
                         stateManager.saveHistory(runtimeService, EXECUTION_ID, history);
 
-                        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+                        ArgumentCaptor<byte[]> captor = ArgumentCaptor.forClass(byte[].class);
                         verify(runtimeService).setVariableLocal(eq(EXECUTION_ID),
                                         eq("_agentConversationHistory"), captor.capture());
 
-                        String json = captor.getValue();
-                        assertNotNull(json);
+                        byte[] bytes = captor.getValue();
+                        assertNotNull(bytes);
 
                         when(runtimeService.getVariableLocal(EXECUTION_ID,
-                                        "_agentConversationHistory")).thenReturn(json);
+                                        "_agentConversationHistory")).thenReturn(bytes);
 
                         List<ConversationEntry> loaded = stateManager.loadHistory(runtimeService, EXECUTION_ID);
                         assertEquals(2, loaded.size());

@@ -29,14 +29,34 @@ public class AgentConfigExtractor {
         List<AgentConfig> results = new ArrayList<>();
         Parse parse = new BpmnXmlParser().createParse().sourceInputStream(bpmnXml).execute();
         Element root = parse.getRootElement();
-        for (Element process : root.elements("process")) {
-            if (!processKey.equals(process.attribute("id"))) {
-                continue;
-            }
-            for (Element element : walker.walk(process)) {
-                extract(element, processDefinitionId).ifPresent(results::add);
+        List<Element> processes = root.elements("process");
+
+        // First pass: try matching by extracted process key (key:version:id format)
+        for (Element process : processes) {
+            if (processKey.equals(process.attribute("id"))) {
+                for (Element element : walker.walk(process)) {
+                    extract(element, processDefinitionId).ifPresent(results::add);
+                }
+                return results;
             }
         }
+
+        // Fallback: when process definition ID is a bare UUID (no colon separator),
+        // the key extraction returns the full ID which won't match any <process id="...">.
+        // In this case, scan the first executable process (or the only process) since
+        // getProcessModel() already returns the correct BPMN resource for this definition.
+        for (Element process : processes) {
+            String isExecutable = process.attribute("isExecutable");
+            if (!"false".equals(isExecutable)) {
+                for (Element element : walker.walk(process)) {
+                    extract(element, processDefinitionId).ifPresent(results::add);
+                }
+                if (!results.isEmpty()) {
+                    return results;
+                }
+            }
+        }
+
         return results;
     }
 

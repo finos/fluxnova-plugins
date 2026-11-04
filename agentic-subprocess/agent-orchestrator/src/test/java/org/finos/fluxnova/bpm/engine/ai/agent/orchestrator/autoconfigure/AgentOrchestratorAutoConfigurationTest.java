@@ -1,6 +1,7 @@
 package org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.autoconfigure;
 
 import org.finos.fluxnova.bpm.engine.RuntimeService;
+import org.finos.fluxnova.bpm.engine.ai.a2a.service.A2aInvocationService;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry.AgentContextSpecRegistry;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry.AgentToolCatalogueRegistry;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.runtime.AgentContextResolver;
@@ -62,6 +63,11 @@ class AgentOrchestratorAutoConfigurationTest {
         AgentContextResolver agentContextResolver() {
             return mock(AgentContextResolver.class);
         }
+
+        @Bean
+        A2aInvocationService a2aInvocationService() {
+            return mock(A2aInvocationService.class);
+        }
     }
 
     @Configuration
@@ -104,6 +110,11 @@ class AgentOrchestratorAutoConfigurationTest {
         @Bean
         AgentTerminationHandler agentTerminationHandler() {
             return mock(AgentTerminationHandler.class);
+        }
+
+        @Bean
+        A2aInvocationService a2aInvocationService() {
+            return mock(A2aInvocationService.class);
         }
     }
 

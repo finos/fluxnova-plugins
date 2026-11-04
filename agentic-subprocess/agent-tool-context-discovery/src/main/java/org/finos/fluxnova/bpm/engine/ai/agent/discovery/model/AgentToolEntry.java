@@ -18,11 +18,24 @@ import java.util.Set;
  *                    {@code null}, but may be empty
  * @param writes      process variable names written as outputs by this tool; never
  *                    {@code null}, but may be empty
+ * @param type        the type of tool — {@link AgentToolType#BPMN_ACTIVITY} for local
+ *                    BPMN activities, {@link AgentToolType#REMOTE_AGENT} for remote A2A agents
  */
 public record AgentToolEntry(
     String elementId,
     String name,
     String description,
     Set<String> reads,
-    Set<String> writes
-) {}
+    Set<String> writes,
+    AgentToolType type
+) {
+
+    /**
+     * Backward-compatible constructor that defaults {@code type} to
+     * {@link AgentToolType#BPMN_ACTIVITY}.
+     */
+    public AgentToolEntry(String elementId, String name, String description,
+                          Set<String> reads, Set<String> writes) {
+        this(elementId, name, description, reads, writes, AgentToolType.BPMN_ACTIVITY);
+    }
+}

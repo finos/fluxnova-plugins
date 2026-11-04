@@ -7,9 +7,11 @@ import org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract.BpmnExtensionCon
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.lifecycle.AgentDiscoveryUndeployListener;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry.AgentContextSpecRegistry;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry.AgentToolCatalogueRegistry;
+import org.finos.fluxnova.bpm.engine.ai.a2a.discovery.AgentCardCache;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.runtime.AgentContextResolver;
 import org.finos.fluxnova.bpm.engine.ai.agent.extract.AgentConfigExtractor;
 import org.finos.fluxnova.bpm.engine.ai.agent.registry.AgentConfigRegistry;
+import org.springframework.web.client.RestClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -29,6 +31,7 @@ class AgentDiscoveryAutoConfigurationTest {
         @Bean AgentConfigRegistry agentConfigRegistry(AgentConfigExtractor ext) {
             return new AgentConfigRegistry(ext);
         }
+        @Bean AgentCardCache agentCardCache() { return new AgentCardCache(RestClient.builder().build()); }
     }
 
     @Configuration
@@ -37,6 +40,7 @@ class AgentDiscoveryAutoConfigurationTest {
         @Bean AgentConfigRegistry agentConfigRegistry(AgentConfigExtractor ext) {
             return new AgentConfigRegistry(ext);
         }
+        @Bean AgentCardCache agentCardCache() { return new AgentCardCache(RestClient.builder().build()); }
         @Bean AgentToolCatalogueBuilder agentToolCatalogueBuilder() {
             return mock(AgentToolCatalogueBuilder.class);
         }
@@ -48,6 +52,7 @@ class AgentDiscoveryAutoConfigurationTest {
         @Bean AgentConfigRegistry agentConfigRegistry(AgentConfigExtractor ext) {
             return new AgentConfigRegistry(ext);
         }
+        @Bean AgentCardCache agentCardCache() { return new AgentCardCache(RestClient.builder().build()); }
         @Bean AgentContextSpecBuilder agentContextSpecExtractor() {
             return mock(AgentContextSpecBuilder.class);
         }

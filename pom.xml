@@ -34,8 +34,7 @@
     -->
 
     <properties>
-        <!-- Dependency Versions -->
-        <fluxnova.version>3.0.0</fluxnova.version>
+        <fluxnova.version>3.1.0</fluxnova.version>
         <java.version>21</java.version>
         <spring-ai.version>2.0.0</spring-ai.version>
         <spring-boot.version>4.0.7</spring-boot.version>

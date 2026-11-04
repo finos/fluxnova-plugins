@@ -67,24 +67,32 @@ public class AgentStateManager {
      * @return the current conversation history; an empty list if none has been saved yet
      */
     public List<ConversationEntry> loadHistory(RuntimeService runtimeService, String executionId) {
-        String json =
-                (String) runtimeService.getVariableLocal(executionId, VAR_CONVERSATION_HISTORY);
-        if (json == null) {
+        Object rawValue = runtimeService.getVariableLocal(executionId, VAR_CONVERSATION_HISTORY);
+        if (rawValue == null) {
             return new ArrayList<>();
+        }
+        String json;
+        if (rawValue instanceof byte[] bytes) {
+            json = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+        } else {
+            json = (String) rawValue;
         }
         return deserialize(json, HISTORY_TYPE);
     }
 
     /**
      * Persists the conversation history for the given execution, replacing any
-     * previously saved history.
+     * previously saved history. Uses byte array storage to avoid database column
+     * size limits (e.g., H2's 4000 char TEXT_ column).
      *
      * @param runtimeService the runtime service used to write the execution's local variables
      * @param executionId    the scope execution id
      * @param history        the history to save; must not be {@code null}
      */
     public void saveHistory(RuntimeService runtimeService, String executionId, List<ConversationEntry> history) {
-        runtimeService.setVariableLocal(executionId, VAR_CONVERSATION_HISTORY, serialize(history));
+        String json = serialize(history);
+        byte[] bytes = json.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        runtimeService.setVariableLocal(executionId, VAR_CONVERSATION_HISTORY, bytes);
     }
 
     /**

@@ -113,6 +113,27 @@ public class AgentToolCatalogueRegistry {
         resolvedAgents.clear();
     }
 
+    /**
+     * Invalidates all cached tool catalogues so they are rebuilt on next access,
+     * while preserving the resolved agent → scope mappings (which depend only on the
+     * static BPMN structure, not on remote agent metadata).
+     *
+     * <p>Intended to be called when upstream metadata that feeds catalogue construction
+     * changes — for example when a remote agent's card is refreshed with new skills.
+     * Because catalogues are resolved lazily at orchestration time, this ensures:
+     * <ul>
+     *   <li>process instances created after invalidation build a fresh catalogue;</li>
+     *   <li>in-flight instances whose token has not yet reached the agentic subprocess
+     *       also build a fresh catalogue when they arrive;</li>
+     *   <li>instances already mid-orchestration are unaffected for their current turn
+     *       (they already resolved and hold their catalogue).</li>
+     * </ul>
+     */
+    public void invalidateAll() {
+        LOG.info("Invalidating all cached tool catalogues; they will be rebuilt on next access");
+        scopeCache.clear();
+    }
+
     private AgentToolCatalogue doScan(RepositoryService repositoryService, String processDefinitionId, String toolScopeElementId) {
         try {
             ProcessDefinition processDefinition =

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  xmlns:a2a-remote="http://fluxnova.finos.org/schema/1.0/ai/a2a-remote"
+                  id="Definitions_1"
+                  targetNamespace="http://bpmn.io/schema/bpmn"
+                  exporter="Fluxnova Modeler"
+                  exporterVersion="1.0.0">
+
+  <bpmn:process id="agentInvestigationProcess" name="Agent Investigation Process" isExecutable="true">
+
+    <bpmn:startEvent id="startEvent" name="Alert Received">
+      <bpmn:outgoing>flow1</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:adHocSubProcess id="agentScope" name="Investigation Agent Scope">
+      <bpmn:incoming>flow1</bpmn:incoming>
+      <bpmn:outgoing>flow2</bpmn:outgoing>
+
+      <!-- A2A Remote Agent as visual service task (new pattern) -->
+      <bpmn:serviceTask id="amlAgent" name="AML Investigation Agent"
+                        camunda:type="a2a-remote">
+        <bpmn:extensionElements>
+          <a2a-remote:config
+              url="http://localhost:8085/tasks/send"
+              agent-ref="aml-agent"
+              name="AML Investigation Agent"
+              description="Investigates AML alerts, sanctions lists, and PEP databases."
+              timeout="30000" />
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+
+      <!-- Local BPMN tool (standard service task) -->
+      <bpmn:serviceTask id="enrichData" name="Enrich Transaction Data"
+                        camunda:type="external"
+                        camunda:topic="EnrichTransactionDataWorker">
+      </bpmn:serviceTask>
+
+    </bpmn:adHocSubProcess>
+
+    <bpmn:endEvent id="endEvent" name="Investigation Complete">
+      <bpmn:incoming>flow2</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:sequenceFlow id="flow1" sourceRef="startEvent" targetRef="agentScope" />
+    <bpmn:sequenceFlow id="flow2" sourceRef="agentScope" targetRef="endEvent" />
+
+  </bpmn:process>
+
+</bpmn:definitions>

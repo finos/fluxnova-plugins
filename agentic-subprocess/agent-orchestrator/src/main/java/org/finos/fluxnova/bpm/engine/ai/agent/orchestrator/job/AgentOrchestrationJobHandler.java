@@ -1,9 +1,15 @@
 package org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.job;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.finos.fluxnova.bpm.engine.RepositoryService;
 import org.finos.fluxnova.bpm.engine.RuntimeService;
+import org.finos.fluxnova.bpm.engine.ai.a2a.model.A2aRemoteCallConfig;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentContextSpec;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolCatalogue;
+import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolEntry;
+import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolType;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.ResolvedContext;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry.AgentContextSpecRegistry;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.registry.AgentToolCatalogueRegistry;
@@ -16,11 +22,16 @@ import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.service.AgentTerminat
 import org.finos.fluxnova.bpm.engine.ai.agent.service.ToolInvocationService;
 import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.state.AgentStateManager;
 import org.finos.fluxnova.bpm.engine.ai.agent.registry.AgentConfigRegistry;
+import org.finos.fluxnova.bpm.engine.impl.context.Context;
+import org.finos.fluxnova.bpm.engine.impl.el.ExpressionManager;
 import org.finos.fluxnova.bpm.engine.impl.interceptor.CommandContext;
 import org.finos.fluxnova.bpm.engine.impl.jobexecutor.JobHandler;
 import org.finos.fluxnova.bpm.engine.impl.persistence.entity.ExecutionEntity;
 import org.finos.fluxnova.bpm.engine.impl.persistence.entity.JobEntity;
 import org.finos.fluxnova.bpm.engine.impl.persistence.entity.MessageEntity;
+import org.finos.fluxnova.bpm.engine.impl.persistence.entity.ProcessDefinitionEntity;
+import org.finos.fluxnova.bpm.engine.impl.pvm.process.ActivityImpl;
+import org.finos.fluxnova.bpm.engine.repository.ProcessDefinition;
 import org.finos.fluxnova.bpm.engine.shared.model.ConversationEntry;
 import org.finos.fluxnova.bpm.engine.shared.model.LlmResponse;
 import org.finos.fluxnova.bpm.engine.shared.model.ToolCallRequest;
@@ -68,6 +79,8 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
     private static final String INITIAL_USER_PROMPT =
             "Begin. Use the available tools to complete the task, then respond and stop.";
 
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     private final AgentConfigRegistry agentConfigRegistry;
     private final AgentToolCatalogueRegistry toolCatalogueRegistry;
     private final AgentContextSpecRegistry contextSpecRegistry;
@@ -75,14 +88,14 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
     private final LlmService llmService;
     private final ToolInvocationService toolInvocationService;
     private final AgentStateManager stateManager;
-    private final AgentTerminationHandler AgentTerminationHandler;
+    private final AgentTerminationHandler agentTerminationHandler;
 
     public AgentOrchestrationJobHandler(AgentConfigRegistry agentConfigRegistry,
             AgentToolCatalogueRegistry toolCatalogueRegistry,
             AgentContextSpecRegistry contextSpecRegistry, AgentContextResolver contextResolver,
             LlmService llmService,
             ToolInvocationService toolInvocationService, AgentStateManager stateManager,
-            AgentTerminationHandler AgentTerminationHandler) {
+            AgentTerminationHandler agentTerminationHandler) {
         this.agentConfigRegistry = agentConfigRegistry;
         this.toolCatalogueRegistry = toolCatalogueRegistry;
         this.contextSpecRegistry = contextSpecRegistry;
@@ -90,7 +103,7 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
         this.llmService = llmService;
         this.toolInvocationService = toolInvocationService;
         this.stateManager = stateManager;
-        this.AgentTerminationHandler = AgentTerminationHandler;
+        this.agentTerminationHandler = agentTerminationHandler;
     }
 
     @Override
@@ -177,7 +190,7 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
                     "Tool catalogue is empty for activity '{}' in process '{}', terminating execution '{}'",
                     execution.getActivityId(), execution.getProcessDefinitionId(),
                     scopeExecutionId);
-            AgentTerminationHandler.complete(runtimeService, scopeExecutionId);
+            agentTerminationHandler.complete(runtimeService, scopeExecutionId);
             return;
         }
 
@@ -198,7 +211,7 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
         if (response.toolCalls().isEmpty()) {
             LOG.debug("No tool calls returned, triggering termination for scope '{}'", scopeExecutionId);
             // Complete the process if tool call is empty
-            AgentTerminationHandler.complete(runtimeService, scopeExecutionId);
+            agentTerminationHandler.complete(runtimeService, scopeExecutionId);
             return;
         }
         LOG.debug("Dispatching scope '{}': toolCalls='{}'", scopeExecutionId, response.toolCalls());
@@ -223,24 +236,176 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
         for (ToolCallRequest tc : toolCalls) {
             pending.add(tc.toolCallId());
             LOG.debug("dispatch() scope='{}' registering toolCallId='{}'", scopeExecutionId, tc.toolCallId());
-            ToolInvocationResult result =
-                    toolInvocationService.invoke(runtimeService, scopeExecutionId, catalogue, tc);
-            if (!result.success()) {
-                // Synchronous failure — no BPMN activity will complete, so no listener will fire.
-                // Instantiate an equivalent completion job so the failure travels through the same
-                // tool-completion path as listener-driven results, keeping the pending set
-                // consistent.
-                ToolResult failure = ToolResult.error(tc.toolCallId(), result.errorMessage());
-                MessageEntity job = new MessageEntity();
-                job.setExecution(execution);
-                job.setJobHandlerType(TYPE);
-                job.setJobHandlerConfigurationRaw(
-                        AgentOrchestrationConfig.forToolCompletion(failure).toCanonicalString());
-                commandContext.getJobManager().insertAndHintJobExecutor(job);
-            }
         }
+        // Save ALL pending tool call ids BEFORE any completion job is eligible
         LOG.debug("dispatch() scope='{}' saving pending set={}", scopeExecutionId, pending);
         stateManager.savePendingToolCalls(runtimeService, scopeExecutionId, pending);
+
+        for (ToolCallRequest tc : toolCalls) {
+            AgentToolEntry entry = catalogue.findById(tc.toolId()).orElse(null);
+
+            if (entry == null) {
+                LOG.warn("dispatch() scope='{}' unknown tool '{}'", scopeExecutionId, tc.toolId());
+                enqueueFailure(tc.toolCallId(), "Unknown tool: " + tc.toolId(), execution, commandContext);
+                continue;
+            }
+
+            if (entry.type() == AgentToolType.REMOTE_AGENT) {
+                dispatchA2aJob(tc, entry, execution, commandContext);
+            } else {
+                ToolInvocationResult result =
+                        toolInvocationService.invoke(runtimeService, scopeExecutionId, catalogue, tc);
+                if (!result.success()) {
+                    enqueueFailure(tc.toolCallId(), result.errorMessage(), execution, commandContext);
+                }
+            }
+        }
+    }
+
+    private void dispatchA2aJob(ToolCallRequest tc, AgentToolEntry entry,
+                                ExecutionEntity execution, CommandContext commandContext) {
+        String prompt = extractPromptFromArguments(tc.arguments());
+        if (prompt == null) {
+            LOG.warn("dispatchA2aJob() failed to extract prompt from arguments for tool '{}'", tc.toolId());
+            enqueueFailure(tc.toolCallId(),
+                    "Failed to extract prompt from arguments for remote agent: " + tc.toolId(),
+                    execution, commandContext);
+            return;
+        }
+
+        String url = getRemoteAgentUrl(entry, execution);
+        if (url == null) {
+            LOG.warn("dispatchA2aJob() no URL found for remote agent '{}'", entry.elementId());
+            enqueueFailure(tc.toolCallId(),
+                    "No URL configured for remote agent: " + entry.elementId(),
+                    execution, commandContext);
+            return;
+        }
+
+        A2aRemoteInvokeConfig config = new A2aRemoteInvokeConfig(
+                url, prompt, tc.toolCallId(), execution.getId(), entry.elementId(),
+                getRemoteAgentRef(entry, execution));
+
+        MessageEntity job = new MessageEntity();
+        job.setExecution(execution);
+        job.setJobHandlerType(A2aRemoteInvokeJobHandler.TYPE);
+        job.setJobHandlerConfigurationRaw(config.toCanonicalString());
+        commandContext.getJobManager().insertAndHintJobExecutor(job);
+
+        LOG.debug("dispatchA2aJob() created A2A job for agent '{}' at '{}', toolCallId='{}'",
+                entry.elementId(), url, tc.toolCallId());
+    }
+
+    /**
+     * Extracts the "prompt" field from a JSON arguments string.
+     *
+     * @param arguments the raw JSON string (e.g., {@code {"prompt":"Investigate..."}})
+     * @return the extracted prompt value, or {@code null} if extraction fails
+     */
+    String extractPromptFromArguments(String arguments) {
+        if (arguments == null || arguments.isBlank()) {
+            return null;
+        }
+        try {
+            JsonNode node = OBJECT_MAPPER.readTree(arguments);
+            JsonNode promptNode = node.get("prompt");
+            if (promptNode == null || !promptNode.isTextual()) {
+                return null;
+            }
+            return promptNode.asText();
+        } catch (JsonProcessingException e) {
+            LOG.debug("Failed to parse arguments JSON: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private static final String A2A_CONFIG_PROPERTY_KEY = "a2aRemoteCallConfig";
+
+    private String getRemoteAgentUrl(AgentToolEntry entry, ExecutionEntity execution) {
+        A2aRemoteCallConfig config = getA2aConfig(entry, execution);
+        if (config == null || config.url() == null) {
+            return null;
+        }
+        // Resolve EL expressions (e.g. ${remoteAgentUrl}) against the execution context
+        return resolveExpression(config.url(), execution);
+    }
+
+    /**
+     * Resolves a value that may contain an EL expression against the execution context.
+     * Plain (non-EL) values are returned unchanged.
+     */
+    private String resolveExpression(String value, ExecutionEntity execution) {
+        if (value.contains("${") || value.contains("#{")) {
+            ExpressionManager expressionManager = Context.getProcessEngineConfiguration().getExpressionManager();
+            return (String) expressionManager.createExpression(value).getValue(execution);
+        }
+        return value;
+    }
+
+    /**
+     * Retrieves the {@link A2aRemoteCallConfig} stored as a property on the activity
+     * identified by the entry's element id within the current process definition.
+     */
+    private A2aRemoteCallConfig getA2aConfig(AgentToolEntry entry, ExecutionEntity execution) {
+        ActivityImpl activity = findActivityInScope(entry.elementId(), execution);
+        if (activity == null) {
+            return null;
+        }
+        return (A2aRemoteCallConfig) activity.getProperty(A2A_CONFIG_PROPERTY_KEY);
+    }
+
+    /**
+     * Locates the {@link ActivityImpl} for the given element id within the process definition
+     * associated with the execution's scope.
+     *
+     * <p>Uses {@link ProcessDefinitionEntity#findActivity(String)} which recursively searches
+     * through nested scopes, so activities that are nested children of the ad-hoc subprocess
+     * (e.g., tasks within sub-processes inside the ad-hoc scope) are found correctly.
+     *
+     * @param elementId the BPMN element id to locate
+     * @param execution the current execution providing access to the process definition
+     * @return the activity, or {@code null} if not found (with a warning logged)
+     */
+    private ActivityImpl findActivityInScope(String elementId, ExecutionEntity execution) {
+        RepositoryService repositoryService = execution.getProcessEngineServices().getRepositoryService();
+        ProcessDefinition processDefinition =
+                repositoryService.getProcessDefinition(execution.getProcessDefinitionId());
+
+        if (!(processDefinition instanceof ProcessDefinitionEntity procDefEntity)) {
+            LOG.warn("Process definition '{}' is not a ProcessDefinitionEntity, cannot locate activity '{}'",
+                    execution.getProcessDefinitionId(), elementId);
+            return null;
+        }
+
+        ActivityImpl activity = procDefEntity.findActivity(elementId);
+        if (activity == null) {
+            LOG.warn("Activity '{}' not found in process definition '{}'",
+                    elementId, execution.getProcessDefinitionId());
+            return null;
+        }
+
+        return activity;
+    }
+
+    private String getRemoteAgentRef(AgentToolEntry entry, ExecutionEntity execution) {
+        A2aRemoteCallConfig config = getA2aConfig(entry, execution);
+        if (config == null || config.agentRef() == null) {
+            return null;
+        }
+
+        // Resolve EL expressions (e.g. ${agentRef}) against the execution context
+        return resolveExpression(config.agentRef(), execution);
+    }
+
+    private void enqueueFailure(String toolCallId, String errorMessage,
+                                ExecutionEntity execution, CommandContext commandContext) {
+        ToolResult failure = ToolResult.error(toolCallId, errorMessage);
+        MessageEntity job = new MessageEntity();
+        job.setExecution(execution);
+        job.setJobHandlerType(TYPE);
+        job.setJobHandlerConfigurationRaw(
+                AgentOrchestrationConfig.forToolCompletion(failure).toCanonicalString());
+        commandContext.getJobManager().insertAndHintJobExecutor(job);
     }
 
 

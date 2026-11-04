@@ -8,3 +8,6 @@ projects:
   agentic-subprocess:
     path: agentic-subprocess
     tagKey: agentic-subprocess
+  a2a-remote-call:
+    path: a2a-remote-call
+    tagKey: a2a-remote-call

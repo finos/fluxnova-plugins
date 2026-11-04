@@ -26,6 +26,11 @@
         </dependency>
         <dependency>
             <groupId>org.finos.fluxnova.bpm</groupId>
+            <artifactId>fluxnova-engine-plugins-ai-a2a-remote-call</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.finos.fluxnova.bpm</groupId>
             <artifactId>fluxnova-engine</artifactId>
             <version>${fluxnova.version}</version>
             <scope>provided</scope>
@@ -47,8 +52,24 @@
         </dependency>
         <!-- Test dependencies -->
         <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-web</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.jqwik</groupId>
+            <artifactId>jqwik</artifactId>
+            <version>1.9.2</version>
             <scope>test</scope>
         </dependency>
         <dependency>
