@@ -3,6 +3,8 @@ package org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.model;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class ToolResultTest {
@@ -14,6 +16,16 @@ class ToolResultTest {
             ToolResult result = new ToolResult("tc-1", "taskA", null);
 
             assertFalse(result.isError());
+            assertTrue(result.outputs().isEmpty());
+        }
+
+        @Test
+        void constructor_withOutputs_retainsOutputsMap() {
+            ToolResult result = new ToolResult(
+                    "tc-1", "taskA", null, Map.of("creditScore", 720, "riskLevel", "LOW"));
+
+            assertFalse(result.isError());
+            assertEquals(Map.of("creditScore", 720, "riskLevel", "LOW"), result.outputs());
         }
     }
 

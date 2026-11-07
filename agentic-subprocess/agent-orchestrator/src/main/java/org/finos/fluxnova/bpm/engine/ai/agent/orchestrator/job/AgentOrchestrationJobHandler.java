@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -248,9 +249,14 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
             List<ToolResult> results) {
         List<ConversationEntry> updated = new ArrayList<>(history);
         for (ToolResult result : results) {
-            Map<String, Object> resultContent =
-                    result.isError() ? Map.of("error", result.errorMessage())
-                            : Map.of("status", "ok");
+            Map<String, Object> resultContent;
+            if (result.isError()) {
+                resultContent = Map.of("error", result.errorMessage());
+            } else if (result.outputs() != null && !result.outputs().isEmpty()) {
+                resultContent = new LinkedHashMap<>(result.outputs());
+            } else {
+                resultContent = Map.of("status", "ok");
+            }
             updated.add(ConversationEntry.tool(result.toolCallId(), resultContent));
         }
         return updated;
