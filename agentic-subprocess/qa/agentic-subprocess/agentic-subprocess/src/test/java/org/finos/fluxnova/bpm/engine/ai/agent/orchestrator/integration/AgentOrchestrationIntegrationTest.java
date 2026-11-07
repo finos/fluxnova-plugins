@@ -1,6 +1,8 @@
 package org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.integration;
 
+import org.finos.fluxnova.bpm.engine.BpmnParseException;
 import org.finos.fluxnova.bpm.engine.ManagementService;
+import org.finos.fluxnova.bpm.engine.ProcessEngineException;
 import org.finos.fluxnova.bpm.engine.RepositoryService;
 import org.finos.fluxnova.bpm.engine.RuntimeService;
 import org.finos.fluxnova.bpm.engine.ai.agent.llm.service.LlmService;
@@ -19,8 +21,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.reset;
@@ -261,6 +265,239 @@ class AgentOrchestrationIntegrationTest {
     }
 
     // -----------------------------------------------------------------------
+    // Scenario 8: Multi-step sequential activity chain (A -> B -> C)
+    // -----------------------------------------------------------------------
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void sequentialActivityChain_completesOnlyAfterTerminalActivityFinishes() {
+        deploy(agentXmlWithBody("""
+                <serviceTask id="toolA" name="Tool A" camunda:class="%1$s">
+                  <outgoing>flowAB</outgoing>
+                </serviceTask>
+                <sequenceFlow id="flowAB" sourceRef="toolA" targetRef="stepB"/>
+                <serviceTask id="stepB" name="Step B" camunda:class="%1$s">
+                  <incoming>flowAB</incoming>
+                  <outgoing>flowBC</outgoing>
+                </serviceTask>
+                <sequenceFlow id="flowBC" sourceRef="stepB" targetRef="stepC"/>
+                <serviceTask id="stepC" name="Step C" camunda:class="%1$s">
+                  <incoming>flowBC</incoming>
+                </serviceTask>
+                """.formatted(DELEGATE_CLASS)));
+
+        when(llmOrchestrationService.call(any(), any(), any(), anyList()))
+                .thenReturn(toolCallResponse("call-chain", "toolA"))
+                .thenReturn(doneResponse());
+
+        ProcessInstance processInstance = runtimeService.startProcessInstanceByKey(PROCESS_KEY);
+
+        // Entry job dispatches toolA, which synchronously runs toolA -> stepB -> stepC
+        executeNextJob(processInstance);
+
+        List<String> executed = (List<String>) runtimeService.getVariable(
+                processInstance.getId(), "executedActivities");
+        assertThat(executed).containsExactly("toolA", "stepB", "stepC");
+
+        // Only a single tool-completion job should have been queued for the entire chain
+        List<Job> completionJobs = managementService.createJobQuery()
+                .processInstanceId(processInstance.getId()).list();
+        assertThat(completionJobs).hasSize(1);
+
+        executeNextJob(processInstance);
+
+        verify(llmOrchestrationService, times(2)).call(any(), any(), any(), anyList());
+        assertProcessEnded(processInstance);
+    }
+
+    // -----------------------------------------------------------------------
+    // Scenario 9: Parallel branches inside a triggered tool fragment
+    // -----------------------------------------------------------------------
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void parallelFragmentBranches_completesOnceAllBranchesFinish() {
+        deploy(agentXmlWithBody("""
+                <serviceTask id="toolA" name="Tool A" camunda:class="%1$s">
+                  <outgoing>toFork</outgoing>
+                </serviceTask>
+                <sequenceFlow id="toFork" sourceRef="toolA" targetRef="forkGw"/>
+                <parallelGateway id="forkGw">
+                  <incoming>toFork</incoming>
+                  <outgoing>toBranch1</outgoing>
+                  <outgoing>toBranch2</outgoing>
+                </parallelGateway>
+                <sequenceFlow id="toBranch1" sourceRef="forkGw" targetRef="branch1"/>
+                <sequenceFlow id="toBranch2" sourceRef="forkGw" targetRef="branch2"/>
+                <serviceTask id="branch1" name="Branch 1" camunda:class="%1$s">
+                  <incoming>toBranch1</incoming>
+                </serviceTask>
+                <serviceTask id="branch2" name="Branch 2" camunda:class="%1$s">
+                  <incoming>toBranch2</incoming>
+                </serviceTask>
+                """.formatted(DELEGATE_CLASS)));
+
+        when(llmOrchestrationService.call(any(), any(), any(), anyList()))
+                .thenReturn(toolCallResponse("call-parallel-frag", "toolA"))
+                .thenReturn(doneResponse());
+
+        ProcessInstance processInstance = runtimeService.startProcessInstanceByKey(PROCESS_KEY);
+
+        executeNextJob(processInstance);
+
+        List<String> executed = (List<String>) runtimeService.getVariable(
+                processInstance.getId(), "executedActivities");
+        assertThat(executed).containsExactlyInAnyOrder("toolA", "branch1", "branch2");
+
+        // Exactly one tool completion job should be emitted after the last branch finishes
+        List<Job> completionJobs = managementService.createJobQuery()
+                .processInstanceId(processInstance.getId()).list();
+        assertThat(completionJobs).hasSize(1);
+
+        executeNextJob(processInstance);
+        verify(llmOrchestrationService, times(2)).call(any(), any(), any(), anyList());
+        assertProcessEnded(processInstance);
+    }
+
+    // -----------------------------------------------------------------------
+    // Scenario 10: Conditional gateway path inside a triggered tool fragment
+    // -----------------------------------------------------------------------
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void conditionalGatewayFragment_completesWhenSelectedTerminalActivityFinishes() {
+        deploy(agentXmlWithBody("""
+                <serviceTask id="toolA" name="Tool A" camunda:class="%1$s">
+                  <outgoing>toGw</outgoing>
+                </serviceTask>
+                <sequenceFlow id="toGw" sourceRef="toolA" targetRef="condGw"/>
+                <exclusiveGateway id="condGw" default="toLow">
+                  <incoming>toGw</incoming>
+                  <outgoing>toHigh</outgoing>
+                  <outgoing>toLow</outgoing>
+                </exclusiveGateway>
+                <sequenceFlow id="toHigh" sourceRef="condGw" targetRef="highPath">
+                  <conditionExpression xsi:type="tFormalExpression">${score >= 700}</conditionExpression>
+                </sequenceFlow>
+                <sequenceFlow id="toLow" sourceRef="condGw" targetRef="lowPath"/>
+                <serviceTask id="highPath" name="High Path" camunda:class="%1$s">
+                  <incoming>toHigh</incoming>
+                </serviceTask>
+                <serviceTask id="lowPath" name="Low Path" camunda:class="%1$s">
+                  <incoming>toLow</incoming>
+                </serviceTask>
+                """.formatted(DELEGATE_CLASS)));
+
+        when(llmOrchestrationService.call(any(), any(), any(), anyList()))
+                .thenReturn(toolCallResponse("call-cond", "toolA"))
+                .thenReturn(doneResponse());
+
+        ProcessInstance processInstance = runtimeService.startProcessInstanceByKey(
+                PROCESS_KEY, Map.of("score", 750));
+
+        executeNextJob(processInstance);
+
+        List<String> executed = (List<String>) runtimeService.getVariable(
+                processInstance.getId(), "executedActivities");
+        assertThat(executed).containsExactly("toolA", "highPath");
+
+        executeNextJob(processInstance);
+        verify(llmOrchestrationService, times(2)).call(any(), any(), any(), anyList());
+        assertProcessEnded(processInstance);
+    }
+
+    // -----------------------------------------------------------------------
+    // Scenario 11: Bounded loop inside a triggered tool fragment
+    // -----------------------------------------------------------------------
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void boundedLoopFragment_completesOnlyWhenLoopExitsAndTerminalActivityFinishes() {
+        deploy(agentXmlWithBody("""
+                <serviceTask id="toolA" name="Tool A" camunda:class="%1$s">
+                  <outgoing>toLoopStep</outgoing>
+                </serviceTask>
+                <sequenceFlow id="toLoopStep" sourceRef="toolA" targetRef="loopStep"/>
+                <serviceTask id="loopStep" name="Loop Step" camunda:class="%1$s">
+                  <incoming>toLoopStep</incoming>
+                  <incoming>loopBack</incoming>
+                  <outgoing>toLoopGw</outgoing>
+                </serviceTask>
+                <sequenceFlow id="toLoopGw" sourceRef="loopStep" targetRef="loopGw"/>
+                <exclusiveGateway id="loopGw" default="loopExitFlow">
+                  <incoming>toLoopGw</incoming>
+                  <outgoing>loopBack</outgoing>
+                  <outgoing>loopExitFlow</outgoing>
+                </exclusiveGateway>
+                <sequenceFlow id="loopBack" sourceRef="loopGw" targetRef="loopStep">
+                  <conditionExpression xsi:type="tFormalExpression">${loopIterations < 3}</conditionExpression>
+                </sequenceFlow>
+                <sequenceFlow id="loopExitFlow" sourceRef="loopGw" targetRef="finalStep"/>
+                <serviceTask id="finalStep" name="Final Step" camunda:class="%1$s">
+                  <incoming>loopExitFlow</incoming>
+                </serviceTask>
+                """.formatted(DELEGATE_CLASS)));
+
+        when(llmOrchestrationService.call(any(), any(), any(), anyList()))
+                .thenReturn(toolCallResponse("call-loop", "toolA"))
+                .thenReturn(doneResponse());
+
+        ProcessInstance processInstance = runtimeService.startProcessInstanceByKey(
+                PROCESS_KEY, Map.of("loopIterations", 0));
+
+        executeNextJob(processInstance);
+
+        List<String> executed = (List<String>) runtimeService.getVariable(
+                processInstance.getId(), "executedActivities");
+        assertThat(executed).containsExactly("toolA", "loopStep", "loopStep", "loopStep", "finalStep");
+
+        List<Job> completionJobs = managementService.createJobQuery()
+                .processInstanceId(processInstance.getId()).list();
+        assertThat(completionJobs).hasSize(1);
+
+        executeNextJob(processInstance);
+        verify(llmOrchestrationService, times(2)).call(any(), any(), any(), anyList());
+        assertProcessEnded(processInstance);
+    }
+
+    // -----------------------------------------------------------------------
+    // Scenario 12: Deploying with auto-complete enabled fails at parse time
+    // -----------------------------------------------------------------------
+
+    @Test
+    void deployWithAutoCompleteEnabled_throwsParseException() {
+        String invalidXml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  xmlns:agent="http://fluxnova.finos.org/schema/1.0/ai/agent"
+                  targetNamespace="http://test">
+                  <process id="invalidAutoCompleteProc" isExecutable="true">
+                    <startEvent id="start"><outgoing>toAgent</outgoing></startEvent>
+                    <sequenceFlow id="toAgent" sourceRef="start" targetRef="agentScope"/>
+                    <adHocSubProcess id="agentScope" ordering="Parallel">
+                      <extensionElements>
+                        <agent:config provider="test" model="test-model"
+                          systemPrompt="You are a test agent."/>
+                      </extensionElements>
+                      <incoming>toAgent</incoming>
+                      <outgoing>toEnd</outgoing>
+                      <serviceTask id="toolA" name="toolA" camunda:class="%s"/>
+                    </adHocSubProcess>
+                    <sequenceFlow id="toEnd" sourceRef="agentScope" targetRef="end"/>
+                    <endEvent id="end"><incoming>toEnd</incoming></endEvent>
+                  </process>
+                </definitions>
+                """.formatted(DELEGATE_CLASS);
+
+        assertThatThrownBy(() -> repositoryService.createDeployment()
+                .addString("invalid-agent.bpmn", invalidXml)
+                .deploy())
+                .isInstanceOfAny(BpmnParseException.class, ProcessEngineException.class)
+                .hasMessageContaining("autoComplete");
+    }
+
+    // -----------------------------------------------------------------------
     // Helpers — job execution
     // -----------------------------------------------------------------------
 
@@ -327,29 +564,34 @@ class AgentOrchestrationIntegrationTest {
                     """.formatted(toolId, toolId, DELEGATE_CLASS));
         }
 
+        return agentXmlWithBody(tools.toString());
+    }
+
+    private static String agentXmlWithBody(String bodyXml) {
         return """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                   xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
                   xmlns:agent="http://fluxnova.finos.org/schema/1.0/ai/agent"
                   targetNamespace="http://test">
                   <process id="%s" isExecutable="true">
                     <startEvent id="start"><outgoing>toAgent</outgoing></startEvent>
                     <sequenceFlow id="toAgent" sourceRef="start" targetRef="%s"/>
-                    <adHocSubProcess id="%s" ordering="Parallel">
+                    <adHocSubProcess id="%s" ordering="Parallel" camunda:autoComplete="false">
                       <extensionElements>
                         <agent:config provider="test" model="test-model"
                           systemPrompt="You are a test agent."/>
                       </extensionElements>
                       <incoming>toAgent</incoming>
                       <outgoing>toEnd</outgoing>
-                %s    <completionCondition>${false}</completionCondition>
+                %s
                     </adHocSubProcess>
                     <sequenceFlow id="toEnd" sourceRef="%s" targetRef="end"/>
                     <endEvent id="end"><incoming>toEnd</incoming></endEvent>
                   </process>
                 </definitions>
-                """.formatted(PROCESS_KEY, AD_HOC_ID, AD_HOC_ID, tools, AD_HOC_ID);
+                """.formatted(PROCESS_KEY, AD_HOC_ID, AD_HOC_ID, bodyXml, AD_HOC_ID);
     }
 
     private static String agentXmlNoTools() {
