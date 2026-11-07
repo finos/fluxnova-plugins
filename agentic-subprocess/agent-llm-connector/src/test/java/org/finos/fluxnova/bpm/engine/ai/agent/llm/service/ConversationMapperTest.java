@@ -156,4 +156,35 @@ class ConversationMapperTest {
         assertThat(messages.getFirst().getMessageType()).isEqualTo(MessageType.SYSTEM);
         assertThat(messages.get(1).getMessageType()).isEqualTo(MessageType.USER);
     }
+
+    @Test
+    void toLlmResponse_whenToolCallContainsJsonArguments_parsesArgumentsMapAndRoundTripsToSpringAi() {
+        AgentConfig config = agentConfig("sys");
+        AssistantMessage assistant = AssistantMessage.builder()
+                .content("Searching documents.")
+                .toolCalls(List.of(new AssistantMessage.ToolCall(
+                        "call-42",
+                        "function",
+                        "searchDocs",
+                        "{\"query\":\"fluxnova\",\"category\":\"architecture\"}")))
+                .build();
+        ChatResponse response = new ChatResponse(List.of(new Generation(assistant)));
+
+        LlmResponse llm = mapper.toLlmResponse(response, List.of(ConversationEntry.user("find docs")));
+
+        assertThat(llm.toolCalls()).hasSize(1);
+        ToolCallRequest toolCall = llm.toolCalls().getFirst();
+        assertThat(toolCall.toolCallId()).isEqualTo("call-42");
+        assertThat(toolCall.toolId()).isEqualTo("searchDocs");
+        assertThat(toolCall.arguments())
+                .containsEntry("query", "fluxnova")
+                .containsEntry("category", "architecture");
+
+        List<Message> roundTripped = mapper.toSpringAi(config, new ResolvedContext(Map.of()), llm.updatedHistory());
+        AssistantMessage mappedAssistant = (AssistantMessage) roundTripped.get(2);
+        assertThat(mappedAssistant.getToolCalls()).hasSize(1);
+        assertThat(mappedAssistant.getToolCalls().getFirst().arguments())
+                .contains("\"query\":\"fluxnova\"")
+                .contains("\"category\":\"architecture\"");
+    }
 }

@@ -14,4 +14,10 @@ public class AgentToolInvocationAutoConfiguration {
     public ToolInvocationService toolInvocationService() {
         return new AdHocActivityToolInvocationServiceImpl();
     }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public AgentToolInvocationEnginePlugin agentToolInvocationEnginePlugin() {
+        return new AgentToolInvocationEnginePlugin();
+    }
 }
