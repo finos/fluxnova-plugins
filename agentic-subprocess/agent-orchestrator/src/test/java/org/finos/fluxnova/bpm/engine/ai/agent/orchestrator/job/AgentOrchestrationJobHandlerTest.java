@@ -18,6 +18,9 @@ import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.service.AgentTerminat
 import org.finos.fluxnova.bpm.engine.ai.agent.service.ToolInvocationService;
 import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.state.AgentStateManager;
 import org.finos.fluxnova.bpm.engine.ai.agent.registry.AgentConfigRegistry;
+import org.finos.fluxnova.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
+import org.finos.fluxnova.bpm.engine.impl.el.Expression;
+import org.finos.fluxnova.bpm.engine.impl.el.ExpressionManager;
 import org.finos.fluxnova.bpm.engine.impl.interceptor.CommandContext;
 import org.finos.fluxnova.bpm.engine.impl.persistence.entity.ExecutionEntity;
 import org.finos.fluxnova.bpm.engine.impl.persistence.entity.JobManager;
@@ -30,6 +33,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -276,6 +280,114 @@ class AgentOrchestrationJobHandlerTest {
                         assertThrows(IllegalStateException.class,
                                         () -> handler.execute(AgentOrchestrationConfig.forEntry(),
                                                         execution, commandContext, null));
+                }
+
+                @Test
+                @SuppressWarnings("unchecked")
+                void execute_whenUserPromptConfigured_seedsCustomUserMessage() {
+                        AgentConfig customConfig = new AgentConfig(PROC_DEF_ID, ELEMENT_ID, "ollama",
+                                        "llama3", "You are an agent.", "Evaluate loan application #42.",
+                                        ELEMENT_ID);
+                        when(agentConfigRegistry.resolve(repositoryService, PROC_DEF_ID, ELEMENT_ID))
+                                        .thenReturn(Optional.of(customConfig));
+                        when(toolCatalogueRegistry.resolve(repositoryService, PROC_DEF_ID, ELEMENT_ID))
+                                        .thenReturn(Optional.of(toolCatalogue));
+                        when(contextSpecRegistry.resolve(repositoryService, PROC_DEF_ID, ELEMENT_ID))
+                                        .thenReturn(Optional.of(contextSpec));
+                        stubEmptyState();
+
+                        ResolvedContext resolvedContext = new ResolvedContext(Map.of());
+                        when(contextResolver.resolve(runtimeService, SCOPE_EXECUTION_ID, contextSpec))
+                                        .thenReturn(resolvedContext);
+                        LlmResponse response = new LlmResponse("Done", List.of(),
+                                        List.of(ConversationEntry.assistant("Done", List.of())));
+                        ArgumentCaptor<List<ConversationEntry>> historyCaptor =
+                                        ArgumentCaptor.forClass(List.class);
+                        when(llmService.call(eq(customConfig), eq(toolCatalogue),
+                                        eq(resolvedContext), historyCaptor.capture())).thenReturn(response);
+
+                        handler.execute(AgentOrchestrationConfig.forEntry(), execution,
+                                        commandContext, null);
+
+                        List<ConversationEntry> sentHistory = historyCaptor.getValue();
+                        assertEquals(1, sentHistory.size());
+                        assertEquals(ConversationEntry.user("Evaluate loan application #42."), sentHistory.get(0));
+                }
+
+                @Test
+                @SuppressWarnings("unchecked")
+                void execute_whenUserPromptHasExpression_resolvesVariablesViaExpressionManager() {
+                        AgentConfig exprConfig = new AgentConfig(PROC_DEF_ID, ELEMENT_ID, "ollama",
+                                        "llama3", "You are an agent.",
+                                        "Process order for ${customerName}", ELEMENT_ID);
+                        when(agentConfigRegistry.resolve(repositoryService, PROC_DEF_ID, ELEMENT_ID))
+                                        .thenReturn(Optional.of(exprConfig));
+                        when(toolCatalogueRegistry.resolve(repositoryService, PROC_DEF_ID, ELEMENT_ID))
+                                        .thenReturn(Optional.of(toolCatalogue));
+                        when(contextSpecRegistry.resolve(repositoryService, PROC_DEF_ID, ELEMENT_ID))
+                                        .thenReturn(Optional.of(contextSpec));
+                        stubEmptyState();
+
+                        ProcessEngineConfigurationImpl engineConfig =
+                                        mock(ProcessEngineConfigurationImpl.class);
+                        ExpressionManager expressionManager = mock(ExpressionManager.class);
+                        Expression expression = mock(Expression.class);
+                        when(commandContext.getProcessEngineConfiguration()).thenReturn(engineConfig);
+                        when(engineConfig.getExpressionManager()).thenReturn(expressionManager);
+                        when(expressionManager.createExpression("Process order for ${customerName}"))
+                                        .thenReturn(expression);
+                        when(expression.getValue(execution)).thenReturn("Process order for Alice");
+
+                        ResolvedContext resolvedContext = new ResolvedContext(Map.of());
+                        when(contextResolver.resolve(runtimeService, SCOPE_EXECUTION_ID, contextSpec))
+                                        .thenReturn(resolvedContext);
+                        LlmResponse response = new LlmResponse("Done", List.of(),
+                                        List.of(ConversationEntry.assistant("Done", List.of())));
+                        ArgumentCaptor<List<ConversationEntry>> historyCaptor =
+                                        ArgumentCaptor.forClass(List.class);
+                        when(llmService.call(eq(exprConfig), eq(toolCatalogue),
+                                        eq(resolvedContext), historyCaptor.capture())).thenReturn(response);
+
+                        handler.execute(AgentOrchestrationConfig.forEntry(), execution,
+                                        commandContext, null);
+
+                        List<ConversationEntry> sentHistory = historyCaptor.getValue();
+                        assertEquals(1, sentHistory.size());
+                        assertEquals(ConversationEntry.user("Process order for Alice"), sentHistory.get(0));
+                }
+
+                @Test
+                @SuppressWarnings("unchecked")
+                void execute_whenUserPromptExpressionResolvesToBlank_fallsBackToDefaultInitialPrompt() {
+                        AgentConfig blankExprConfig = new AgentConfig(PROC_DEF_ID, ELEMENT_ID, "ollama",
+                                        "llama3", "You are an agent.", "${emptyPrompt}", ELEMENT_ID);
+                        when(agentConfigRegistry.resolve(repositoryService, PROC_DEF_ID, ELEMENT_ID))
+                                        .thenReturn(Optional.of(blankExprConfig));
+                        when(toolCatalogueRegistry.resolve(repositoryService, PROC_DEF_ID, ELEMENT_ID))
+                                        .thenReturn(Optional.of(toolCatalogue));
+                        when(contextSpecRegistry.resolve(repositoryService, PROC_DEF_ID, ELEMENT_ID))
+                                        .thenReturn(Optional.of(contextSpec));
+                        stubEmptyState();
+
+                        when(execution.getVariable("emptyPrompt")).thenReturn("   ");
+
+                        ResolvedContext resolvedContext = new ResolvedContext(Map.of());
+                        when(contextResolver.resolve(runtimeService, SCOPE_EXECUTION_ID, contextSpec))
+                                        .thenReturn(resolvedContext);
+                        LlmResponse response = new LlmResponse("Done", List.of(),
+                                        List.of(ConversationEntry.assistant("Done", List.of())));
+                        ArgumentCaptor<List<ConversationEntry>> historyCaptor =
+                                        ArgumentCaptor.forClass(List.class);
+                        when(llmService.call(eq(blankExprConfig), eq(toolCatalogue),
+                                        eq(resolvedContext), historyCaptor.capture())).thenReturn(response);
+
+                        handler.execute(AgentOrchestrationConfig.forEntry(), execution,
+                                        commandContext, null);
+
+                        List<ConversationEntry> sentHistory = historyCaptor.getValue();
+                        assertEquals(1, sentHistory.size());
+                        assertEquals(ConversationEntry.user(AgentOrchestrationJobHandler.INITIAL_USER_PROMPT),
+                                        sentHistory.get(0));
                 }
         }
 

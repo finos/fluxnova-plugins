@@ -73,7 +73,64 @@ class AgentConfigExtractorTest {
         assertEquals("ollama", config.provider());
         assertEquals("llama3.1", config.model());
         assertEquals("You are a credit analyst.", config.systemPrompt());
+        assertNull(config.userPrompt());
         assertEquals("creditCheckAgent", config.toolScopeElementId());
+    }
+
+    @Test
+    void extract_whenUserPromptPresent_returnsPopulatedUserPrompt() {
+        String bpmn = wrapInProcess("""
+                <adHocSubProcess id="creditCheckAgent">
+                  <extensionElements>
+                    <agent:config provider="ollama"
+                                  model="llama3.1"
+                                  systemPrompt="You are a credit analyst."
+                                  userPrompt="Analyze credit risk for ${customerId}"
+                                  toolScopeElementId="creditCheckAgent"/>
+                  </extensionElements>
+                </adHocSubProcess>
+                """);
+
+        Optional<AgentConfig> result = extractor.extract(parseAdHocSubProcess(bpmn), PROCESS_DEFINITION_ID);
+
+        assertTrue(result.isPresent());
+        assertEquals("Analyze credit risk for ${customerId}", result.get().userPrompt());
+    }
+
+    @Test
+    void extract_whenUserPromptEmpty_returnsEmptyString() {
+        String bpmn = wrapInProcess("""
+                <adHocSubProcess id="creditCheckAgent">
+                  <extensionElements>
+                    <agent:config provider="ollama"
+                                  model="llama3.1"
+                                  userPrompt=""/>
+                  </extensionElements>
+                </adHocSubProcess>
+                """);
+
+        Optional<AgentConfig> result = extractor.extract(parseAdHocSubProcess(bpmn), PROCESS_DEFINITION_ID);
+
+        assertTrue(result.isPresent());
+        assertEquals("", result.get().userPrompt());
+    }
+
+    @Test
+    void extract_whenUserPromptHasMultilineAndXmlEntities_preservesDecodedContent() {
+        String bpmn = wrapInProcess("""
+                <adHocSubProcess id="creditCheckAgent">
+                  <extensionElements>
+                    <agent:config provider="ollama"
+                                  model="llama3.1"
+                                  userPrompt="Line 1: Check &quot;A&quot; &amp; &quot;B&quot;&#10;Line 2: Ensure score &gt; 700 &amp; debt &lt; 50%"/>
+                  </extensionElements>
+                </adHocSubProcess>
+                """);
+
+        Optional<AgentConfig> result = extractor.extract(parseAdHocSubProcess(bpmn), PROCESS_DEFINITION_ID);
+
+        assertTrue(result.isPresent());
+        assertEquals("Line 1: Check \"A\" & \"B\"\nLine 2: Ensure score > 700 & debt < 50%", result.get().userPrompt());
     }
 
     @Test

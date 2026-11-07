@@ -16,6 +16,8 @@ import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.service.AgentTerminat
 import org.finos.fluxnova.bpm.engine.ai.agent.service.ToolInvocationService;
 import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.state.AgentStateManager;
 import org.finos.fluxnova.bpm.engine.ai.agent.registry.AgentConfigRegistry;
+import org.finos.fluxnova.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
+import org.finos.fluxnova.bpm.engine.impl.el.ExpressionManager;
 import org.finos.fluxnova.bpm.engine.impl.interceptor.CommandContext;
 import org.finos.fluxnova.bpm.engine.impl.jobexecutor.JobHandler;
 import org.finos.fluxnova.bpm.engine.impl.persistence.entity.ExecutionEntity;
@@ -33,6 +35,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Job handler that drives a single step of the scope execution loop.
@@ -60,13 +64,15 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
     public static final String TYPE = "agent-orchestration-step";
 
     /**
-     * Seed user turn for the first LLM call. Without it, the entry-turn conversation is
-     * system-only (system prompt + context), which many models — local ones especially —
-     * won't act on: they narrate instead of emitting tool calls. A user turn kicks off the loop.
-     * TODO: make this configurable via an agent:config attribute (e.g. task/userPrompt).
+     * Default seed user turn for the first LLM call when {@code userPrompt} is not configured or
+     * resolves to blank. Without it, the entry-turn conversation is system-only (system prompt +
+     * context), which many models — local ones especially — won't act on: they narrate instead of
+     * emitting tool calls. A user turn kicks off the loop.
      */
-    private static final String INITIAL_USER_PROMPT =
+    static final String INITIAL_USER_PROMPT =
             "Begin. Use the available tools to complete the task, then respond and stop.";
+
+    private static final Pattern EXPRESSION_TOKEN = Pattern.compile("\\$\\{\\s*([^}\\s]+)\\s*}");
 
     private final AgentConfigRegistry agentConfigRegistry;
     private final AgentToolCatalogueRegistry toolCatalogueRegistry;
@@ -157,12 +163,6 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
         history = appendToolResults(history, buffer);
         stateManager.clearToolResultBuffer(runtimeService, scopeExecutionId);
 
-        // First turn: history is empty and the mapper would send only system messages.
-        // Seed a user turn so the model actually engages the tools.
-        if (history.isEmpty()) {
-            history.add(ConversationEntry.user(INITIAL_USER_PROMPT));
-        }
-
         AgentConfig agentConfig = agentConfigRegistry
                 .resolve(repositoryService, execution.getProcessDefinitionId(), execution.getActivityId())
                 .orElseThrow(() -> new IllegalStateException("No AgentConfig found for "
@@ -171,6 +171,15 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
                 .resolve(repositoryService, execution.getProcessDefinitionId(), execution.getActivityId())
                 .orElseThrow(() -> new IllegalStateException("No AgentToolCatalogue found for "
                         + execution.getProcessDefinitionId() + "/" + execution.getActivityId()));
+
+        // First turn: history is empty and the mapper would send only system messages.
+        // Seed a user turn from agentConfig.userPrompt() (or default fallback) so the model
+        // actually engages the tools.
+        if (history.isEmpty()) {
+            String initialPrompt = resolveInitialUserPrompt(
+                    agentConfig.userPrompt(), execution, commandContext, runtimeService, scopeExecutionId);
+            history.add(ConversationEntry.user(initialPrompt));
+        }
 
         if (catalogue.tools().isEmpty()) {
             LOG.warn(
@@ -254,5 +263,42 @@ public class AgentOrchestrationJobHandler implements JobHandler<AgentOrchestrati
             updated.add(ConversationEntry.tool(result.toolCallId(), resultContent));
         }
         return updated;
+    }
+
+    String resolveInitialUserPrompt(String configuredUserPrompt, ExecutionEntity execution,
+            CommandContext commandContext, RuntimeService runtimeService, String scopeExecutionId) {
+        if (configuredUserPrompt == null || configuredUserPrompt.isBlank()) {
+            return INITIAL_USER_PROMPT;
+        }
+
+        String resolved = configuredUserPrompt;
+        if (configuredUserPrompt.contains("${")) {
+            ProcessEngineConfigurationImpl engineConfig =
+                    commandContext != null ? commandContext.getProcessEngineConfiguration() : null;
+            ExpressionManager expressionManager =
+                    engineConfig != null ? engineConfig.getExpressionManager() : null;
+            if (expressionManager != null) {
+                Object evaluated = expressionManager.createExpression(configuredUserPrompt).getValue(execution);
+                resolved = evaluated == null ? "" : String.valueOf(evaluated);
+            } else {
+                Matcher matcher = EXPRESSION_TOKEN.matcher(configuredUserPrompt);
+                StringBuilder sb = new StringBuilder();
+                while (matcher.find()) {
+                    String varName = matcher.group(1);
+                    Object value = execution != null ? execution.getVariable(varName) : null;
+                    if (value == null && runtimeService != null && scopeExecutionId != null) {
+                        value = runtimeService.getVariable(scopeExecutionId, varName);
+                    }
+                    matcher.appendReplacement(sb, Matcher.quoteReplacement(value == null ? "" : String.valueOf(value)));
+                }
+                matcher.appendTail(sb);
+                resolved = sb.toString();
+            }
+        }
+
+        if (resolved == null || resolved.isBlank()) {
+            return INITIAL_USER_PROMPT;
+        }
+        return resolved;
     }
 }

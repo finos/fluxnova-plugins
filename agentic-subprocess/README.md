@@ -37,7 +37,8 @@ Then annotate an ad-hoc subprocess in your BPMN:
         <agent:config
           provider="ollama"
           model="llama3"
-          systemPrompt="You are a helpful assistant."/>
+          systemPrompt="You are a helpful assistant."
+          userPrompt="Review customer ${customerId} and send a summary email."/>
         <agent:context>
           <agent:variable name="customerId"/>
         </agent:context>
