@@ -8,6 +8,7 @@ package org.finos.fluxnova.bpm.engine.ai.agent.model;
  * @param provider            AI provider identifier (e.g. {@code "ollama"}, {@code "huggingface"})
  * @param model               model identifier within the provider (e.g. {@code "llama3"}, {@code "mistral"})
  * @param systemPrompt        system prompt text supplied to the agent, may be {@code null}
+ * @param userPrompt          initial user prompt text or expression supplied to the agent, may be {@code null}
  * @param toolScopeElementId  BPMN element id that defines the tool-resolution scope; when omitted
  *                            in BPMN, this defaults to {@code elementId}
  */
@@ -17,5 +18,19 @@ public record AgentConfig(
     String provider,
     String model,
     String systemPrompt,
+    String userPrompt,
     String toolScopeElementId
-) {}
+) {
+
+    public AgentConfig(
+        String processDefinitionId,
+        String elementId,
+        String provider,
+        String model,
+        String systemPrompt,
+        String toolScopeElementId
+    ) {
+        this(processDefinitionId, elementId, provider, model, systemPrompt, null, toolScopeElementId);
+    }
+}
+

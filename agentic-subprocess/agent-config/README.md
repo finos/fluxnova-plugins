@@ -36,6 +36,7 @@ Then add an `<agent:config>` block inside the `<extensionElements>` of any BPMN 
       provider="ollama"
       model="llama3"
       systemPrompt="You are a helpful assistant."
+      userPrompt="Process order for ${customerName}"
       toolScopeElementId="myAgent"/>
   </bpmn:extensionElements>
 </bpmn:adHocSubProcess>
@@ -48,6 +49,7 @@ Then add an `<agent:config>` block inside the `<extensionElements>` of any BPMN 
 | `provider` | Yes | AI provider identifier (e.g. `ollama`, `openai`). Must match a configured provider at runtime. |
 | `model` | Yes | Model identifier within the provider (e.g. `llama3`, `gpt-4o`). |
 | `systemPrompt` | No | System prompt text supplied to the model on every turn. |
+| `userPrompt` | No | Initial user prompt text or `${...}` expression evaluated against process variables on the entry turn. Falls back to the default initial prompt if omitted or if it evaluates to blank. |
 | `toolScopeElementId` | No | Id of the BPMN element that defines the tool scope. Defaults to the id of the element carrying `agent:config`. Must reference an element within the same process. |
 
 ### Validation
