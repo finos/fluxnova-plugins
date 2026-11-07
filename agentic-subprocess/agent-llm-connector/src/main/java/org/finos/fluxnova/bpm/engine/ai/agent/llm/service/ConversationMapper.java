@@ -1,5 +1,8 @@
 package org.finos.fluxnova.bpm.engine.ai.agent.llm.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.ResolvedContext;
 import org.finos.fluxnova.bpm.engine.ai.agent.model.AgentConfig;
 import org.finos.fluxnova.bpm.engine.shared.model.ConversationEntry;
@@ -10,6 +13,7 @@ import org.springframework.ai.chat.model.ChatResponse;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -18,6 +22,9 @@ import java.util.stream.Collectors;
  * do not leak outside this package.
  */
 class ConversationMapper {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
     /**
      * Builds the Spring AI message list for the next ChatClient call.
@@ -69,7 +76,7 @@ class ConversationMapper {
                                     tc.toolCallId(),
                                     "function",
                                     tc.toolId(),
-                                    "{}"))
+                                    serializeArguments(tc.arguments())))
                             .collect(Collectors.toList()))
                     .build();
             case TOOL -> ToolResponseMessage.builder()
@@ -93,7 +100,7 @@ class ConversationMapper {
         List<AssistantMessage.ToolCall> springCalls = message.getToolCalls();
 
         List<ToolCallRequest> toolCalls = springCalls.stream()
-                .map(tc -> new ToolCallRequest(tc.id(), tc.name()))
+                .map(tc -> new ToolCallRequest(tc.id(), tc.name(), parseArguments(tc.arguments())))
                 .collect(Collectors.toList());
 
         List<ConversationEntry> updated = new ArrayList<>(
@@ -101,6 +108,29 @@ class ConversationMapper {
         updated.add(ConversationEntry.assistant(text, toolCalls));
 
         return new LlmResponse(text, toolCalls, updated);
+    }
+
+    static Map<String, Object> parseArguments(String rawArguments) {
+        if (rawArguments == null || rawArguments.isBlank()) {
+            return Map.of();
+        }
+        try {
+            Map<String, Object> parsed = OBJECT_MAPPER.readValue(rawArguments, MAP_TYPE);
+            return parsed == null ? Map.of() : parsed;
+        } catch (JsonProcessingException e) {
+            return Map.of();
+        }
+    }
+
+    static String serializeArguments(Map<String, Object> arguments) {
+        if (arguments == null || arguments.isEmpty()) {
+            return "{}";
+        }
+        try {
+            return OBJECT_MAPPER.writeValueAsString(arguments);
+        } catch (JsonProcessingException e) {
+            return "{}";
+        }
     }
 
     private static String formatContext(ResolvedContext context) {

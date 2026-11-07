@@ -1,6 +1,7 @@
 package org.finos.fluxnova.bpm.engine.ai.agent.discovery.extract;
 
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolCatalogue;
+import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolParameter;
 import org.finos.fluxnova.bpm.engine.impl.core.variable.mapping.InputParameter;
 import org.finos.fluxnova.bpm.engine.impl.core.variable.mapping.IoMapping;
 import org.finos.fluxnova.bpm.engine.impl.core.variable.mapping.OutputParameter;
@@ -440,6 +441,67 @@ class AdHocSubProcessCatalogueBuilderTest {
             Optional<String> result = AdHocSubProcessCatalogueBuilder.scopeReadFor("${_myVar}");
 
             assertEquals(Optional.of("_myVar"), result);
+        }
+    }
+
+    @Nested
+    class ParametersExtraction {
+
+        @Test
+        void build_agentArgSingleQuoted_extractsParameterAndDoesNotAddToReads() {
+            ActivityImpl scope = createScope("agent1");
+            ActivityImpl task = addActivity(scope, "searchTask", "serviceTask", "Search Task");
+            IoMapping io = new IoMapping();
+            io.addInputParameter(new InputParameter(
+                    "searchQuery",
+                    elProvider("${agent:arg('query', 'Search terms to query')}")));
+            task.setIoMapping(io);
+
+            AgentToolCatalogue catalogue = builder.build(scope);
+
+            assertEquals(
+                    List.of(new AgentToolParameter("query", "Search terms to query")),
+                    catalogue.tools().get(0).parameters());
+            assertTrue(catalogue.tools().get(0).reads().isEmpty());
+        }
+
+        @Test
+        void build_agentArgDoubleQuotedAndEmbeddedInExpression_extractsAllParametersInOrder() {
+            ActivityImpl scope = createScope("agent1");
+            ActivityImpl task = addActivity(scope, "searchTask", "serviceTask", "Search Task");
+            IoMapping io = new IoMapping();
+            io.addInputParameter(new InputParameter(
+                    "formattedQuery",
+                    elProvider("${'q=' + agent:arg(\"query\", \"Primary query\") + '&limit=' + agent:arg('limit', 'Maximum results')}")));
+            task.setIoMapping(io);
+
+            AgentToolCatalogue catalogue = builder.build(scope);
+
+            assertEquals(
+                    List.of(
+                            new AgentToolParameter("query", "Primary query"),
+                            new AgentToolParameter("limit", "Maximum results")),
+                    catalogue.tools().get(0).parameters());
+        }
+
+        @Test
+        void build_duplicateAgentArgNames_deduplicatesPreservingFirstDeclaration() {
+            ActivityImpl scope = createScope("agent1");
+            ActivityImpl task = addActivity(scope, "searchTask", "serviceTask", "Search Task");
+            IoMapping io = new IoMapping();
+            io.addInputParameter(new InputParameter(
+                    "q1",
+                    elProvider("${agent:arg('query', 'First description')}")));
+            io.addInputParameter(new InputParameter(
+                    "q2",
+                    elProvider("${agent:arg('query', 'Second description')}")));
+            task.setIoMapping(io);
+
+            AgentToolCatalogue catalogue = builder.build(scope);
+
+            assertEquals(
+                    List.of(new AgentToolParameter("query", "First description")),
+                    catalogue.tools().get(0).parameters());
         }
     }
 }

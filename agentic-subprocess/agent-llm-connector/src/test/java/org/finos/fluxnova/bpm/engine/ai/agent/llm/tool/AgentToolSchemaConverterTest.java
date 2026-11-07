@@ -2,6 +2,7 @@ package org.finos.fluxnova.bpm.engine.ai.agent.llm.tool;
 
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolCatalogue;
 import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolEntry;
+import org.finos.fluxnova.bpm.engine.ai.agent.discovery.model.AgentToolParameter;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
@@ -74,5 +75,27 @@ class AgentToolSchemaConverterTest {
 
         assertThatThrownBy(() -> callback.call("{}"))
             .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void convert_whenToolHasDeclaredParameters_includesPropertiesInInputSchema() {
+        AgentToolEntry tool = new AgentToolEntry(
+            "searchDocs", "Search Docs", "Searches internal documents.",
+            Set.of(), Set.of("searchResults"),
+            List.of(
+                new AgentToolParameter("query", "Search query string"),
+                new AgentToolParameter("category", "Document category filter")));
+        AgentToolCatalogue catalogue = new AgentToolCatalogue(
+            "proc-1", "agent-1", List.of(tool));
+
+        List<ToolCallback> callbacks = converter.convert(catalogue);
+
+        assertThat(callbacks).hasSize(1);
+        ToolDefinition def = callbacks.get(0).getToolDefinition();
+        assertThat(def.inputSchema()).isEqualTo(
+            "{\"type\":\"object\",\"properties\":{" +
+            "\"query\":{\"type\":\"string\",\"description\":\"Search query string\"}," +
+            "\"category\":{\"type\":\"string\",\"description\":\"Document category filter\"}" +
+            "},\"required\":[\"query\",\"category\"]}");
     }
 }
