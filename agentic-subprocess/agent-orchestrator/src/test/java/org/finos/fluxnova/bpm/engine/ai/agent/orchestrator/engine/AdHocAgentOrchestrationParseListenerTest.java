@@ -1,7 +1,10 @@
 package org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.engine;
 
 import org.finos.fluxnova.bpm.engine.ActivityTypes;
+import org.finos.fluxnova.bpm.engine.BpmnParseException;
 import org.finos.fluxnova.bpm.engine.delegate.ExecutionListener;
+import org.finos.fluxnova.bpm.engine.impl.bpmn.parser.BpmnParse;
+import org.finos.fluxnova.bpm.engine.impl.persistence.entity.ExecutionEntity;
 import org.finos.fluxnova.bpm.engine.impl.pvm.PvmEvent;
 import org.finos.fluxnova.bpm.engine.impl.pvm.process.ActivityImpl;
 import org.finos.fluxnova.bpm.engine.impl.pvm.process.ScopeImpl;
@@ -12,11 +15,17 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
@@ -50,7 +59,7 @@ class AdHocAgentOrchestrationParseListenerTest {
     @BeforeEach
     void setUp() {
         parseListener = new AdHocAgentOrchestrationParseListener(entryListener, completionListener);
-        when(element.getTagName()).thenReturn(ActivityTypes.SUB_PROCESS_AD_HOC);
+        lenient().when(element.getTagName()).thenReturn(ActivityTypes.SUB_PROCESS_AD_HOC);
     }
 
     @Nested
@@ -78,10 +87,37 @@ class AdHocAgentOrchestrationParseListenerTest {
     }
 
     @Nested
-    class ListenerRegistration {
+    class AutoCompleteValidation {
 
         @Test
-        void parseSubProcess_withAgentConfig_registersEntryListener() {
+        void parseSubProcess_whenAutoCompletePropertyTrue_throwsBpmnParseException() {
+            when(element.element("extensionElements")).thenReturn(extensionElements);
+            when(extensionElements.elementNS(AgentModelConstants.AGENT_NS, "config"))
+                    .thenReturn(agentConfigElement);
+            when(activity.getProperty(BpmnParse.PROPERTYNAME_AD_HOC_AUTO_COMPLETE))
+                    .thenReturn(Boolean.TRUE);
+
+            assertThrows(BpmnParseException.class,
+                    () -> parseListener.parseSubProcess(element, scope, activity));
+        }
+
+        @Test
+        void parseSubProcess_whenAutoCompleteAttributeTrue_throwsBpmnParseException() {
+            when(element.element("extensionElements")).thenReturn(extensionElements);
+            when(extensionElements.elementNS(AgentModelConstants.AGENT_NS, "config"))
+                    .thenReturn(agentConfigElement);
+            when(element.attribute("autoComplete")).thenReturn("true");
+
+            assertThrows(BpmnParseException.class,
+                    () -> parseListener.parseSubProcess(element, scope, activity));
+        }
+    }
+
+    @Nested
+    class ListenerAndBehaviorRegistration {
+
+        @Test
+        void parseSubProcess_withAgentConfig_registersEntryListenerAndAgentAdHocBehavior() {
             when(element.element("extensionElements")).thenReturn(extensionElements);
             when(extensionElements.elementNS(AgentModelConstants.AGENT_NS, "config"))
                     .thenReturn(agentConfigElement);
@@ -90,25 +126,31 @@ class AdHocAgentOrchestrationParseListenerTest {
             parseListener.parseSubProcess(element, scope, activity);
 
             verify(activity).addBuiltInListener(PvmEvent.EVENTNAME_START, entryListener);
+            ArgumentCaptor<AgentAdHocSubProcessActivityBehavior> behaviorCaptor =
+                    ArgumentCaptor.forClass(AgentAdHocSubProcessActivityBehavior.class);
+            verify(activity).setActivityBehavior(behaviorCaptor.capture());
+            assertInstanceOf(AgentAdHocSubProcessActivityBehavior.class, behaviorCaptor.getValue());
         }
 
         @Test
-        void parseSubProcess_triggerableChild_getsCompletionListener() {
+        void parseSubProcess_doesNotAttachCompletionListenerToChildEndEvent() {
             when(element.element("extensionElements")).thenReturn(extensionElements);
             when(extensionElements.elementNS(AgentModelConstants.AGENT_NS, "config"))
                     .thenReturn(agentConfigElement);
 
             when(childTool.getProperty("type")).thenReturn(ActivityTypes.TASK_SERVICE);
+            when(childTool.getId()).thenReturn("childTool");
             when(childTool.getIncomingTransitions()).thenReturn(Collections.emptyList());
             when(activity.getActivities()).thenReturn(List.of(childTool));
 
             parseListener.parseSubProcess(element, scope, activity);
 
-            verify(childTool).addBuiltInListener(PvmEvent.EVENTNAME_END, completionListener);
+            verify(childTool, never()).addBuiltInListener(eq(PvmEvent.EVENTNAME_END), any());
+            verify(activity).setActivityBehavior(any(AgentAdHocSubProcessActivityBehavior.class));
         }
 
         @Test
-        void parseSubProcess_nonTriggerableChild_noCompletionListener() {
+        void parseSubProcess_nonTriggerableChild_noListenersRegistered() {
             when(element.element("extensionElements")).thenReturn(extensionElements);
             when(extensionElements.elementNS(AgentModelConstants.AGENT_NS, "config"))
                     .thenReturn(agentConfigElement);
@@ -125,42 +167,57 @@ class AdHocAgentOrchestrationParseListenerTest {
             verify(childNonTool, never()).addBuiltInListener(anyString(),
                     any(ExecutionListener.class));
         }
+    }
+
+    @Nested
+    class FragmentBehaviorCompletion {
 
         @Test
-        void parseSubProcess_mixedChildren_onlyTriggerableGetListener() {
-            when(element.element("extensionElements")).thenReturn(extensionElements);
-            when(extensionElements.elementNS(AgentModelConstants.AGENT_NS, "config"))
-                    .thenReturn(agentConfigElement);
+        void concurrentChildExecutionEnded_notifiesCompletionWhenLastFragmentBranchEnds() {
+            AgentAdHocSubProcessActivityBehavior behavior =
+                    new AgentAdHocSubProcessActivityBehavior(
+                            completionListener,
+                            Map.of("toolA", Set.of("toolA", "stepB")),
+                            Map.of("toolA", "toolA", "stepB", "toolA"));
 
-            when(childTool.getProperty("type")).thenReturn(ActivityTypes.TASK_SERVICE);
-            when(childNonTool.getProperty("type")).thenReturn(ActivityTypes.TASK_SERVICE);
-            when(incomingTransition.getSource()).thenReturn(childTool);
-            when(childTool.getId()).thenReturn("childTool");
-            when(activity.findActivity("childTool")).thenReturn(childTool);
-            when(childTool.getIncomingTransitions()).thenReturn(Collections.emptyList());
-            when(childNonTool.getIncomingTransitions()).thenReturn(List.of(incomingTransition));
-            when(activity.getActivities()).thenReturn(List.of(childTool, childNonTool));
+            ExecutionEntity scopeExec = mock(ExecutionEntity.class);
+            ExecutionEntity endedExec = mock(ExecutionEntity.class);
+            ActivityImpl stepB = mock(ActivityImpl.class);
+            when(stepB.getId()).thenReturn("stepB");
+            when(endedExec.getActivity()).thenReturn(stepB);
+            when(endedExec.getVariableLocal("_agentToolCallId")).thenReturn("call-1");
+            when(scopeExec.getExecutions()).thenReturn(List.of(endedExec));
 
-            parseListener.parseSubProcess(element, scope, activity);
+            behavior.concurrentChildExecutionEnded(scopeExec, endedExec);
 
-            verify(activity).addBuiltInListener(PvmEvent.EVENTNAME_START, entryListener);
-            verify(childTool).addBuiltInListener(PvmEvent.EVENTNAME_END, completionListener);
-            verify(childNonTool, never()).addBuiltInListener(anyString(),
-                    any(ExecutionListener.class));
+            verify(completionListener).notify(endedExec);
         }
 
         @Test
-        void parseSubProcess_noChildren_registersOnlyEntryListener() {
-            when(element.element("extensionElements")).thenReturn(extensionElements);
-            when(extensionElements.elementNS(AgentModelConstants.AGENT_NS, "config"))
-                    .thenReturn(agentConfigElement);
-            when(activity.getActivities()).thenReturn(Collections.emptyList());
+        void concurrentChildExecutionEnded_waitsWhenParallelSiblingBranchStillActive() {
+            AgentAdHocSubProcessActivityBehavior behavior =
+                    new AgentAdHocSubProcessActivityBehavior(
+                            completionListener,
+                            Map.of("toolA", Set.of("toolA", "branch1", "branch2")),
+                            Map.of("toolA", "toolA", "branch1", "toolA", "branch2", "toolA"));
 
-            parseListener.parseSubProcess(element, scope, activity);
+            ExecutionEntity scopeExec = mock(ExecutionEntity.class);
+            ExecutionEntity branch1Exec = mock(ExecutionEntity.class);
+            ExecutionEntity branch2Exec = mock(ExecutionEntity.class);
+            ActivityImpl branch1 = mock(ActivityImpl.class);
+            ActivityImpl branch2 = mock(ActivityImpl.class);
+            when(branch1.getId()).thenReturn("branch1");
+            when(branch2.getId()).thenReturn("branch2");
+            when(branch1Exec.getActivity()).thenReturn(branch1);
+            when(branch1Exec.getVariableLocal("_agentToolCallId")).thenReturn("call-1");
+            when(branch2Exec.getActivity()).thenReturn(branch2);
+            when(branch2Exec.isActive()).thenReturn(true);
+            when(branch2Exec.isEnded()).thenReturn(false);
+            when(scopeExec.getExecutions()).thenReturn(List.of(branch1Exec, branch2Exec));
 
-            verify(activity).addBuiltInListener(PvmEvent.EVENTNAME_START, entryListener);
-            verify(activity, times(1)).addBuiltInListener(anyString(),
-                    any(ExecutionListener.class));
+            behavior.concurrentChildExecutionEnded(scopeExec, branch1Exec);
+
+            verify(completionListener, never()).notify(any());
         }
     }
 }
