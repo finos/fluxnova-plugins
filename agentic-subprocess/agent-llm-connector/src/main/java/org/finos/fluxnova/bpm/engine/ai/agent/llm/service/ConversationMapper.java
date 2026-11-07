@@ -10,6 +10,7 @@ import org.springframework.ai.chat.model.ChatResponse;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -77,7 +78,7 @@ class ConversationMapper {
                             new ToolResponseMessage.ToolResponse(
                                     entry.toolCallId(),
                                     "",
-                                    !entry.toolResult().containsKey("error") ? entry.toolResult().values().toString() : "error")))
+                                    formatToolResult(entry.toolResult()))))
                     .build();
         };
     }
@@ -103,12 +104,34 @@ class ConversationMapper {
         return new LlmResponse(text, toolCalls, updated);
     }
 
+    private static String formatToolResult(Map<String, Object> toolResult) {
+        if (toolResult == null || toolResult.isEmpty()) {
+            return "";
+        }
+        if (toolResult.containsKey("error")) {
+            Object error = toolResult.get("error");
+            if (error == null || Boolean.TRUE.equals(error)) {
+                return "error";
+            }
+            String message = error.toString();
+            return message.isBlank() ? "error" : message;
+        }
+        if (toolResult.size() == 1 && toolResult.containsKey("status")) {
+            return toolResult.values().toString();
+        }
+        return formatKeyValueLines(toolResult);
+    }
+
     private static String formatContext(ResolvedContext context) {
         if (context == null || context.variables() == null || context.variables().isEmpty()) {
             return null;
         }
+        return formatKeyValueLines(context.variables());
+    }
+
+    private static String formatKeyValueLines(Map<String, Object> variables) {
         StringBuilder sb = new StringBuilder();
-        context.variables().forEach((name, value) -> {
+        variables.forEach((name, value) -> {
             if (!sb.isEmpty()) sb.append('\n');
             sb.append(name).append(" = ").append(format(value));
         });

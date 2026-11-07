@@ -3,10 +3,14 @@ package org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.engine;
 import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.job.AgentOrchestrationJobHandler;
 import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.model.AgentOrchestrationConfig;
 import org.finos.fluxnova.bpm.engine.impl.context.Context;
+import org.finos.fluxnova.bpm.engine.impl.core.variable.mapping.IoMapping;
+import org.finos.fluxnova.bpm.engine.impl.core.variable.mapping.OutputParameter;
+import org.finos.fluxnova.bpm.engine.impl.core.variable.mapping.value.ConstantValueProvider;
 import org.finos.fluxnova.bpm.engine.impl.interceptor.CommandContext;
 import org.finos.fluxnova.bpm.engine.impl.persistence.entity.ExecutionEntity;
 import org.finos.fluxnova.bpm.engine.impl.persistence.entity.JobManager;
 import org.finos.fluxnova.bpm.engine.impl.persistence.entity.MessageEntity;
+import org.finos.fluxnova.bpm.engine.impl.pvm.process.ActivityImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -15,6 +19,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -94,6 +100,33 @@ class SubprocessToolCompletionListenerTest {
             assertEquals(TOOL_CALL_ID, config.toolResult().toolCallId());
             assertEquals(ACTIVITY_ID, config.toolResult().toolElementId());
             assertNull(config.toolResult().errorMessage());
+            assertTrue(config.toolResult().outputs().isEmpty());
+        }
+
+        @Test
+        void notify_whenActivityDeclaresOutputParameters_attachesOutputsToToolResult() {
+            stubToolCallExecution();
+            ActivityImpl activity = mock(ActivityImpl.class);
+            IoMapping ioMapping = new IoMapping();
+            ioMapping.addOutputParameter(new OutputParameter("creditScore", new ConstantValueProvider(720)));
+            ioMapping.addOutputParameter(new OutputParameter("riskLevel", new ConstantValueProvider("LOW")));
+            when(execution.getActivity()).thenReturn(activity);
+            when(activity.getIoMapping()).thenReturn(ioMapping);
+            when(commandContext.getJobManager()).thenReturn(jobManager);
+
+            try (MockedStatic<Context> contextMock = mockStatic(Context.class)) {
+                contextMock.when(Context::getCommandContext).thenReturn(commandContext);
+                listener.notify(execution);
+            }
+
+            ArgumentCaptor<MessageEntity> captor = ArgumentCaptor.forClass(MessageEntity.class);
+            verify(jobManager).insertAndHintJobExecutor(captor.capture());
+
+            AgentOrchestrationConfig config = AgentOrchestrationConfig
+                    .fromCanonicalString(captor.getValue().getJobHandlerConfigurationRaw());
+            assertEquals(
+                    Map.of("creditScore", 720, "riskLevel", "LOW"),
+                    config.toolResult().outputs());
         }
     }
 }

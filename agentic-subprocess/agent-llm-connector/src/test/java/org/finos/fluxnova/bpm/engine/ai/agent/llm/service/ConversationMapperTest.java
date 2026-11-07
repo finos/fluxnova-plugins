@@ -156,4 +156,41 @@ class ConversationMapperTest {
         assertThat(messages.getFirst().getMessageType()).isEqualTo(MessageType.SYSTEM);
         assertThat(messages.get(1).getMessageType()).isEqualTo(MessageType.USER);
     }
+
+    @Test
+    void toSpringAi_whenToolEntryContainsDeclaredOutputs_formatsAsKeyValueLines() {
+        AgentConfig config = agentConfig("sys");
+        Map<String, Object> outputs = new LinkedHashMap<>();
+        outputs.put("creditScore", 720);
+        outputs.put("riskLevel", "LOW");
+        List<ConversationEntry> history = List.of(
+                ConversationEntry.tool("call-1", outputs)
+        );
+
+        List<Message> messages = mapper.toSpringAi(config, new ResolvedContext(Map.of()), history);
+
+        assertThat(messages).hasSize(2);
+        ToolResponseMessage toolResponse = (ToolResponseMessage) messages.get(1);
+        assertThat(toolResponse.getResponses()).hasSize(1);
+        assertThat(toolResponse.getResponses().getFirst().id()).isEqualTo("call-1");
+        assertThat(toolResponse.getResponses().getFirst().responseData())
+                .isEqualTo("creditScore = 720\nriskLevel = LOW");
+    }
+
+    @Test
+    void toSpringAi_whenToolEntryContainsError_surfacesActualErrorMessageInsteadOfLiteralError() {
+        AgentConfig config = agentConfig("sys");
+        List<ConversationEntry> history = List.of(
+                ConversationEntry.tool("call-99", Map.of("error", "Unknown tool: missingTask"))
+        );
+
+        List<Message> messages = mapper.toSpringAi(config, new ResolvedContext(Map.of()), history);
+
+        assertThat(messages).hasSize(2);
+        ToolResponseMessage toolResponse = (ToolResponseMessage) messages.get(1);
+        assertThat(toolResponse.getResponses()).hasSize(1);
+        assertThat(toolResponse.getResponses().getFirst().id()).isEqualTo("call-99");
+        assertThat(toolResponse.getResponses().getFirst().responseData())
+                .isEqualTo("Unknown tool: missingTask");
+    }
 }

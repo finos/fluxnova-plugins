@@ -30,6 +30,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -355,6 +356,47 @@ class AgentOrchestrationJobHandlerTest {
 
                         verify(stateManager, never()).appendToResultBuffer(any(), any(), any());
                         verifyNoInteractions(llmService);
+                }
+
+                @Test
+                @SuppressWarnings("unchecked")
+                void execute_whenToolResultCarriesOutputs_appendsOutputsToToolConversationEntry() {
+                        when(execution.getProcessDefinitionId()).thenReturn(PROC_DEF_ID);
+                        when(execution.getActivityId()).thenReturn(ELEMENT_ID);
+                        stubRegistries();
+
+                        Map<String, Object> outputs = Map.of("creditScore", 720, "riskLevel", "LOW");
+                        ToolResult toolResult = new ToolResult("tc1", "taskA", null, outputs);
+                        when(stateManager.isPendingToolCall(runtimeService, SCOPE_EXECUTION_ID, "tc1"))
+                                        .thenReturn(true);
+                        when(stateManager.completeToolCall(runtimeService, SCOPE_EXECUTION_ID, "tc1"))
+                                        .thenReturn(true);
+
+                        ResolvedContext resolvedContext = new ResolvedContext(outputs);
+                        when(contextResolver.resolve(runtimeService, SCOPE_EXECUTION_ID, contextSpec))
+                                        .thenReturn(resolvedContext);
+                        when(stateManager.loadToolResultBuffer(runtimeService, SCOPE_EXECUTION_ID))
+                                        .thenReturn(new ArrayList<>(List.of(toolResult)));
+
+                        List<ConversationEntry> existingHistory = new ArrayList<>(
+                                        List.of(ConversationEntry.assistant("Checking",
+                                                        List.of(new ToolCallRequest("tc1", "taskA")))));
+                        when(stateManager.loadHistory(runtimeService, SCOPE_EXECUTION_ID))
+                                        .thenReturn(existingHistory);
+
+                        LlmResponse response = new LlmResponse("Done!", List.of(),
+                                        List.of(ConversationEntry.assistant("Done!", List.of())));
+                        ArgumentCaptor<List<ConversationEntry>> historyCaptor =
+                                        ArgumentCaptor.forClass(List.class);
+                        when(llmService.call(eq(agentConfig), eq(toolCatalogue),
+                                        eq(resolvedContext), historyCaptor.capture())).thenReturn(response);
+
+                        handler.execute(AgentOrchestrationConfig.forToolCompletion(toolResult),
+                                        execution, commandContext, null);
+
+                        List<ConversationEntry> sentHistory = historyCaptor.getValue();
+                        assertEquals(2, sentHistory.size());
+                        assertEquals(outputs, sentHistory.get(1).toolResult());
                 }
         }
 
