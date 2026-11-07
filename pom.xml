@@ -52,7 +52,7 @@
 
 
         <!-- properties required for publishing to maven central-->
-        <plugin.version.gpg>3.2.7</plugin.version.gpg>
+        <plugin.version.gpg>3.2.8</plugin.version.gpg>
         <plugin.version.release>3.3.1</plugin.version.release>
         <plugin.version.javadoc>3.8.0</plugin.version.javadoc>
         <plugin.version.source>3.3.1</plugin.version.source>
