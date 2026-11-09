@@ -1,10 +1,9 @@
 package org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.state;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.finos.fluxnova.bpm.engine.RuntimeService;
 import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.model.ToolResult;
+import org.finos.fluxnova.bpm.engine.ai.agent.orchestrator.util.StringSerializationUtils;
 import org.finos.fluxnova.bpm.engine.shared.model.ConversationEntry;
 import org.finos.fluxnova.bpm.engine.shared.model.ToolCallRequest;
 import org.slf4j.Logger;
@@ -43,8 +42,6 @@ public class AgentStateManager {
     private static final String VAR_PENDING_TOOL_CALLS = "_agentPendingToolCalls";
     private static final String VAR_TOOL_RESULT_BUFFER = "_agentToolResultBuffer";
     private static final String VAR_TOOL_CALL_QUEUE = "_agentToolCallQueue";
-
-    private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final TypeReference<List<ConversationEntry>> HISTORY_TYPE =
             new TypeReference<>() {
             };
@@ -67,36 +64,43 @@ public class AgentStateManager {
      * @return the current conversation history; an empty list if none has been saved yet
      */
     public List<ConversationEntry> loadHistory(RuntimeService runtimeService, String executionId) {
-        String json =
-                (String) runtimeService.getVariableLocal(executionId, VAR_CONVERSATION_HISTORY);
-        if (json == null) {
-            return new ArrayList<>();
-        }
-        return deserialize(json, HISTORY_TYPE);
+        Object variable = runtimeService.getVariableLocal(executionId, VAR_CONVERSATION_HISTORY);
+        List<ConversationEntry> result = StringSerializationUtils.deserializeWithOverflowHandling(variable, HISTORY_TYPE);
+        return result != null ? result : new ArrayList<>();
     }
 
     /**
      * Persists the conversation history for the given execution, replacing any
      * previously saved history.
      *
+     * <p>If the serialized history exceeds 4000 characters, it is converted to a
+     * byte array so that Fluxnova's type-based routing uses ByteArrayType (storing
+     * in ACT_GE_BYTEARRAY) instead of StringType (storing in ACT_HI_DETAIL.TEXT_),
+     * which has a 4000-character limit.
+     *
      * @param runtimeService the runtime service used to write the execution's local variables
      * @param executionId    the scope execution id
      * @param history        the history to save; must not be {@code null}
      */
     public void saveHistory(RuntimeService runtimeService, String executionId, List<ConversationEntry> history) {
-        runtimeService.setVariableLocal(executionId, VAR_CONVERSATION_HISTORY, serialize(history));
+        Object valueToStore = StringSerializationUtils.serializeWithOverflowHandling(history);
+        runtimeService.setVariableLocal(executionId, VAR_CONVERSATION_HISTORY, valueToStore);
     }
 
     /**
      * Saves the set of tool-call ids that have been dispatched and are awaiting
      * completion, replacing any previously saved set.
      *
+     * <p>If the serialized set exceeds 4000 characters, it is converted to a
+     * byte array so that Fluxnova's type-based routing uses ByteArrayType.
+     *
      * @param runtimeService the runtime service used to write the execution's local variables
      * @param executionId the scope execution id
      * @param pending     the set of outstanding tool-call ids; must not be {@code null}
      */
     public void savePendingToolCalls(RuntimeService runtimeService, String executionId, Set<String> pending) {
-        runtimeService.setVariableLocal(executionId, VAR_PENDING_TOOL_CALLS, serialize(pending));
+        Object valueToStore = StringSerializationUtils.serializeWithOverflowHandling(pending);
+        runtimeService.setVariableLocal(executionId, VAR_PENDING_TOOL_CALLS, valueToStore);
     }
 
     /**
@@ -135,20 +139,23 @@ public class AgentStateManager {
     /**
      * Loads all tool results accumulated in the buffer since it was last cleared.
      *
+     * <p>Handles both StringType and ByteArrayType storage transparently.
+     *
      * @param runtimeService the runtime service used to read the execution's local variables
      * @param executionId the scope execution id
      * @return the buffered results; an empty list if the buffer is empty
      */
     public List<ToolResult> loadToolResultBuffer(RuntimeService runtimeService, String executionId) {
-        String json = (String) runtimeService.getVariableLocal(executionId, VAR_TOOL_RESULT_BUFFER);
-        if (json == null) {
-            return new ArrayList<>();
-        }
-        return deserialize(json, RESULT_BUFFER_TYPE);
+        Object variable = runtimeService.getVariableLocal(executionId, VAR_TOOL_RESULT_BUFFER);
+        List<ToolResult> result = StringSerializationUtils.deserializeWithOverflowHandling(variable, RESULT_BUFFER_TYPE);
+        return result != null ? result : new ArrayList<>();
     }
 
     /**
      * Appends a single tool result to the buffer.
+     *
+     * <p>If the resulting buffer exceeds 4000 characters when serialized, it is
+     * converted to a byte array so that Fluxnova's type-based routing uses ByteArrayType.
      *
      * @param runtimeService the runtime service used to read and write the execution's local variables
      * @param executionId the scope execution id
@@ -157,11 +164,15 @@ public class AgentStateManager {
     public void appendToResultBuffer(RuntimeService runtimeService, String executionId, ToolResult result) {
         List<ToolResult> buffer = loadToolResultBuffer(runtimeService, executionId);
         buffer.add(result);
-        runtimeService.setVariableLocal(executionId, VAR_TOOL_RESULT_BUFFER, serialize(buffer));
+        Object valueToStore = StringSerializationUtils.serializeWithOverflowHandling(buffer);
+        runtimeService.setVariableLocal(executionId, VAR_TOOL_RESULT_BUFFER, valueToStore);
     }
 
     /**
      * Appends all of the given tool results to the buffer, preserving existing entries.
+     *
+     * <p>If the resulting buffer exceeds 4000 characters when serialized, it is
+     * converted to a byte array so that Fluxnova's type-based routing uses ByteArrayType.
      *
      * @param runtimeService the runtime service used to read and write the execution's local variables
      * @param executionId the scope execution id
@@ -170,7 +181,8 @@ public class AgentStateManager {
     public void appendAllToResultBuffer(RuntimeService runtimeService, String executionId, List<ToolResult> results) {
         List<ToolResult> buffer = loadToolResultBuffer(runtimeService, executionId);
         buffer.addAll(results);
-        runtimeService.setVariableLocal(executionId, VAR_TOOL_RESULT_BUFFER, serialize(buffer));
+        Object valueToStore = StringSerializationUtils.serializeWithOverflowHandling(buffer);
+        runtimeService.setVariableLocal(executionId, VAR_TOOL_RESULT_BUFFER, valueToStore);
     }
 
     /**
@@ -187,51 +199,38 @@ public class AgentStateManager {
     /**
      * Loads the queued tool calls for the given execution.
      *
+     * <p>Handles both StringType and ByteArrayType storage transparently.
+     *
      * @param runtimeService the runtime service used to read the execution's local variables
      * @param executionId the scope execution id
      * @return the queued tool calls; an empty list if none have been saved
      */
     public List<ToolCallRequest> loadToolCallQueue(RuntimeService runtimeService, String executionId) {
-        String json = (String) runtimeService.getVariableLocal(executionId, VAR_TOOL_CALL_QUEUE);
-        if (json == null) {
-            return new ArrayList<>();
-        }
-        return deserialize(json, QUEUE_TYPE);
+        Object variable = runtimeService.getVariableLocal(executionId, VAR_TOOL_CALL_QUEUE);
+        List<ToolCallRequest> result = StringSerializationUtils.deserializeWithOverflowHandling(variable, QUEUE_TYPE);
+        return result != null ? result : new ArrayList<>();
     }
 
     /**
      * Saves the tool call queue for the given execution, replacing any previously
      * saved queue.
      *
+     * <p>If the serialized queue exceeds 4000 characters, it is converted to a
+     * byte array so that Fluxnova's type-based routing uses ByteArrayType.
+     *
      * @param runtimeService the runtime service used to write the execution's local variables
      * @param executionId the scope execution id
      * @param queue       the tool calls to queue; must not be {@code null}
      */
     public void saveToolCallQueue(RuntimeService runtimeService, String executionId, List<ToolCallRequest> queue) {
-        runtimeService.setVariableLocal(executionId, VAR_TOOL_CALL_QUEUE, serialize(queue));
+        Object valueToStore = StringSerializationUtils.serializeWithOverflowHandling(queue);
+        runtimeService.setVariableLocal(executionId, VAR_TOOL_CALL_QUEUE, valueToStore);
     }
 
     private Set<String> loadPendingToolCalls(RuntimeService runtimeService, String executionId) {
-        String json = (String) runtimeService.getVariableLocal(executionId, VAR_PENDING_TOOL_CALLS);
-        if (json == null) {
-            return new HashSet<>();
-        }
-        return new HashSet<>(deserialize(json, PENDING_TYPE));
-    }
-
-    private String serialize(Object value) {
-        try {
-            return MAPPER.writeValueAsString(value);
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Failed to serialize agent state", e);
-        }
-    }
-
-    private <T> T deserialize(String json, TypeReference<T> type) {
-        try {
-            return MAPPER.readValue(json, type);
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Failed to deserialize agent state", e);
-        }
+        Object variable = runtimeService.getVariableLocal(executionId, VAR_PENDING_TOOL_CALLS);
+        Set<String> result = StringSerializationUtils.deserializeWithOverflowHandling(variable, PENDING_TYPE);
+        return result != null ? result : new HashSet<>();
     }
 }
+
