@@ -50,8 +50,8 @@ public class AgentOrchestratorAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public AgentTerminationHandler adHocSubprocessTerminator() {
-        return new AdHocSubprocessTerminator();
+    public AgentTerminationHandler adHocSubprocessTerminator(AgentStateManager stateManager) {
+        return new AdHocSubprocessTerminator(stateManager);
     }
 
     @Bean
