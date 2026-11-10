@@ -1,6 +1,6 @@
 package org.finos.fluxnova.ai.mcp.query.autoconfigure;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.finos.fluxnova.ai.mcp.query.plugins.McpWorkflowQueryPlugin;
 import org.finos.fluxnova.ai.mcp.query.registry.QueryToolRegistrar;
 import org.finos.fluxnova.ai.mcp.query.tools.*;

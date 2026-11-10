@@ -1,6 +1,6 @@
 package org.finos.fluxnova.ai.mcp.query.tools;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.finos.fluxnova.ai.mcp.query.model.dto.CaseDefinitionResultDto;
 import org.finos.fluxnova.ai.mcp.query.model.dto.DecisionDefinitionResultDto;
 import org.finos.fluxnova.ai.mcp.query.model.dto.DecisionRequirementsDefinitionResultDto;
