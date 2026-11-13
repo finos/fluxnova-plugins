@@ -13,40 +13,35 @@ import org.finos.fluxnova.bpm.extension.keycloak.plugin.KeycloakIdentityProvider
 import org.finos.fluxnova.bpm.extension.keycloak.test.util.CacheAwareKeycloakIdentityProviderPluginForTest;
 import org.finos.fluxnova.bpm.extension.keycloak.test.util.CountingHttpRequestInterceptor;
 import org.finos.fluxnova.bpm.extension.keycloak.test.util.PredictableTicker;
-
-import junit.extensions.TestSetup;
-import junit.framework.Test;
-import junit.framework.TestSuite;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import static org.awaitility.Awaitility.await;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Keycloak login test with login cache enabled.
  */
-public class KeycloakLoginTestWithCaching extends AbstractKeycloakIdentityProviderTest {
+public class KeycloakLoginWithCachingTest extends AbstractKeycloakIdentityProviderTest {
   
-	public static Test suite() {
-		return new TestSetup(new TestSuite(KeycloakLoginTestWithCaching.class)) {
-
-			// @BeforeClass
-			protected void setUp() throws Exception {
-				ProcessEngineConfigurationImpl config = (ProcessEngineConfigurationImpl) ProcessEngineConfiguration
-								.createProcessEngineConfigurationFromResource("camunda.enableLoginCaching.cfg.xml");
-				configureKeycloakIdentityProviderPlugin(config);
-				PluggableProcessEngineTestCase.cachedProcessEngine = config.buildProcessEngine();
-			}
-
-			// @AfterClass
-			protected void tearDown() throws Exception {
-				PluggableProcessEngineTestCase.cachedProcessEngine.close();
-				PluggableProcessEngineTestCase.cachedProcessEngine = null;
-			}
-		};
+	@BeforeAll
+	public static void setUpProcessEngine() throws Exception {
+		ProcessEngineConfigurationImpl config = (ProcessEngineConfigurationImpl) ProcessEngineConfiguration
+						.createProcessEngineConfigurationFromResource("camunda.enableLoginCaching.cfg.xml");
+		configureKeycloakIdentityProviderPlugin(config);
+		PluggableProcessEngineTestCase.cachedProcessEngine = config.buildProcessEngine();
 	}
 
-	@Override
-	protected void tearDown() throws Exception {
-		super.tearDown();
+	@AfterAll
+	public static void tearDownProcessEngine() throws Exception {
+		PluggableProcessEngineTestCase.cachedProcessEngine.close();
+		PluggableProcessEngineTestCase.cachedProcessEngine = null;
+	}
+
+	@AfterEach
+	public void cleanUp() throws Exception {
 		this.clearCache();
 		CountingHttpRequestInterceptor.resetCount();
 	}
@@ -66,6 +61,7 @@ public class KeycloakLoginTestWithCaching extends AbstractKeycloakIdentityProvid
 	// Test methods
 	// ------------------------------------------------------------------------
 	
+	@Test
 	public void testCacheEnabledKeycloakLoginSuccess() {
 		int countBefore = CountingHttpRequestInterceptor.getHttpRequestCount();
 
@@ -80,6 +76,7 @@ public class KeycloakLoginTestWithCaching extends AbstractKeycloakIdentityProvid
 		assertEquals(countBefore + 1, CountingHttpRequestInterceptor.getHttpRequestCount());
 	}
 
+	@Test
 	public void testCacheEnabledKeycloakLoginCapitalization() {
 		int countBefore = CountingHttpRequestInterceptor.getHttpRequestCount();
 
@@ -94,6 +91,7 @@ public class KeycloakLoginTestWithCaching extends AbstractKeycloakIdentityProvid
 		assertEquals(countBefore + 1, CountingHttpRequestInterceptor.getHttpRequestCount());
 	}
 
+	@Test
 	public void testCacheEnabledKeycloakLoginFailure() {
 		int countBefore = CountingHttpRequestInterceptor.getHttpRequestCount();
 
@@ -115,6 +113,7 @@ public class KeycloakLoginTestWithCaching extends AbstractKeycloakIdentityProvid
 		assertEquals(countBefore + 3, CountingHttpRequestInterceptor.getHttpRequestCount());
 	}
 
+	@Test
 	public void testCacheEnabledKeycloakLoginNullValues() {
 		int countBefore = CountingHttpRequestInterceptor.getHttpRequestCount();
 
@@ -126,6 +125,7 @@ public class KeycloakLoginTestWithCaching extends AbstractKeycloakIdentityProvid
 		assertEquals(countBefore, CountingHttpRequestInterceptor.getHttpRequestCount());
 	}
 
+	@Test
 	public void testCacheEnabledKeycloakLoginEmptyValues() {
 		int countBefore = CountingHttpRequestInterceptor.getHttpRequestCount();
 
@@ -137,6 +137,7 @@ public class KeycloakLoginTestWithCaching extends AbstractKeycloakIdentityProvid
 		assertEquals(countBefore, CountingHttpRequestInterceptor.getHttpRequestCount());
 	}
 	
+	@Test
 	public void testCacheEnabledKeycloakLoginSpecialCharacterPassword() {
 		int countBefore = CountingHttpRequestInterceptor.getHttpRequestCount();
 
@@ -153,6 +154,7 @@ public class KeycloakLoginTestWithCaching extends AbstractKeycloakIdentityProvid
 		assertEquals(countBefore + 2, CountingHttpRequestInterceptor.getHttpRequestCount());	
 	}
 
+	@Test
 	public void testLoginCacheSize() {
 		int countBefore = CountingHttpRequestInterceptor.getHttpRequestCount();
 
@@ -187,6 +189,7 @@ public class KeycloakLoginTestWithCaching extends AbstractKeycloakIdentityProvid
 		assertEquals(2, getCacheEntries().size());	
 	}
 	
+	@Test
 	public void testLoginCustomCacheTimeout() {
 		int countBefore = CountingHttpRequestInterceptor.getHttpRequestCount();
 

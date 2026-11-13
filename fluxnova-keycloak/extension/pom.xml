@@ -3,24 +3,18 @@
 
 	<parent>
 	  <groupId>org.finos.fluxnova.bpm.extension</groupId>
-	  <artifactId>camunda-platform-7-keycloak-root</artifactId>
-      <version>7.24.1-SNAPSHOT</version>
+	  <artifactId>fluxnova-keycloak-root</artifactId>
+      <version>1.0.0-SNAPSHOT</version>
 	</parent>
 
-    <artifactId>camunda-platform-7-keycloak</artifactId>
+    <artifactId>fluxnova-keycloak</artifactId>
 
 	<packaging>jar</packaging>
-    <name>Camunda Platform 7 - engine plugins - identity - keycloak - extension</name>
-	<description>A Camunda 7 Identity Provider Plugin for Keycloak</description>
-
-	<properties>
-		<maven.compiler.source>${version.java}</maven.compiler.source>
-		<maven.compiler.target>${version.java}</maven.compiler.target>
-		<failOnMissingWebXml>false</failOnMissingWebXml>
-	</properties>
+    <name>Fluxnova Platform - engine plugins - identity - keycloak - extension</name>
+	<description>A Fluxnova Identity Provider Plugin for Keycloak</description>
 
 	<dependencies>
-		<!--~~(No version provided for direct dependency org.finos.fluxnova.bpm:fluxnova-engine:provided)~~>--><dependency>
+		<dependency>
 			<groupId>org.finos.fluxnova.bpm</groupId>
 			<artifactId>fluxnova-engine</artifactId>
 			<scope>provided</scope>
@@ -34,7 +28,6 @@
 		<dependency>
 			<groupId>org.finos.fluxnova.commons</groupId>
 			<artifactId>fluxnova-commons-logging</artifactId>
-      <version>3.0.0</version>
 		</dependency>
 
 		<!-- http client 5 -->
@@ -46,7 +39,6 @@
 		<dependency>
 			<groupId>commons-codec</groupId>
 			<artifactId>commons-codec</artifactId>
-			<version>${version.commons-codec}</version>
 		</dependency>
 
         <dependency>
@@ -63,7 +55,6 @@
 			<groupId>org.finos.fluxnova.bpm.springboot</groupId>
 			<artifactId>fluxnova-bpm-spring-boot-starter-test</artifactId>
 			<scope>test</scope>
-      <version>3.0.0</version>
 		</dependency>
  		
 		<dependency>
@@ -75,7 +66,12 @@
 		<dependency>
 			<groupId>org.awaitility</groupId>
 			<artifactId>awaitility</artifactId>
-			<version>4.3.0</version>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers</artifactId>
 			<scope>test</scope>
 		</dependency>
 

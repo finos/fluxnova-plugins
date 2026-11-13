@@ -1,8 +1,7 @@
 package org.finos.fluxnova.bpm.extension.keycloak.test;
 
-import junit.extensions.TestSetup;
-import junit.framework.Test;
-import junit.framework.TestSuite;
+import static org.junit.jupiter.api.Assertions.*;
+
 import org.finos.fluxnova.bpm.engine.ProcessEngineConfiguration;
 import org.finos.fluxnova.bpm.engine.identity.Group;
 import org.finos.fluxnova.bpm.engine.identity.GroupQuery;
@@ -17,34 +16,32 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests group queries with caching enabled and max size configured
  */
-public class KeycloakGroupQueryTestWithCachingAndMaxSize extends AbstractKeycloakIdentityProviderTest {
+public class KeycloakGroupQueryWithCachingAndMaxSizeTest extends AbstractKeycloakIdentityProviderTest {
 
-	public static Test suite() {
-		return new TestSetup(new TestSuite(KeycloakGroupQueryTestWithCachingAndMaxSize.class)) {
-
-			// @BeforeClass
-			protected void setUp() throws Exception {
-				ProcessEngineConfigurationImpl config = (ProcessEngineConfigurationImpl) ProcessEngineConfiguration
-								.createProcessEngineConfigurationFromResource("camunda.enableCachingAndConfigureMaxCacheSize.cfg.xml");
-				configureKeycloakIdentityProviderPlugin(config);
-				PluggableProcessEngineTestCase.cachedProcessEngine = config.buildProcessEngine();
-			}
-
-			// @AfterClass
-			protected void tearDown() throws Exception {
-				PluggableProcessEngineTestCase.cachedProcessEngine.close();
-				PluggableProcessEngineTestCase.cachedProcessEngine = null;
-			}
-		};
+	@BeforeAll
+	public static void setUpProcessEngine() throws Exception {
+		ProcessEngineConfigurationImpl config = (ProcessEngineConfigurationImpl) ProcessEngineConfiguration
+						.createProcessEngineConfigurationFromResource("camunda.enableCachingAndConfigureMaxCacheSize.cfg.xml");
+		configureKeycloakIdentityProviderPlugin(config);
+		PluggableProcessEngineTestCase.cachedProcessEngine = config.buildProcessEngine();
 	}
 
-	@Override
-	protected void tearDown() throws Exception {
-		super.tearDown();
+	@AfterAll
+	public static void tearDownProcessEngine() throws Exception {
+		PluggableProcessEngineTestCase.cachedProcessEngine.close();
+		PluggableProcessEngineTestCase.cachedProcessEngine = null;
+	}
+
+	@AfterEach
+	public void cleanUp() throws Exception {
 		// delete all created authorizations
 		processEngine.getAuthorizationService().createAuthorizationQuery().list().forEach(a -> {
 			processEngine.getAuthorizationService().deleteAuthorization(a.getId());
@@ -68,6 +65,7 @@ public class KeycloakGroupQueryTestWithCachingAndMaxSize extends AbstractKeycloa
 	// Test configuration
 	// ------------------------------------------------------------------------
 
+	@Test
 	public void testCacheEntriesEvictedWhenMaxSizeIsReached() {
 
 		GroupQuery query = identityService.createGroupQuery();
@@ -76,37 +74,37 @@ public class KeycloakGroupQueryTestWithCachingAndMaxSize extends AbstractKeycloa
 
 		assertEquals(0, countBefore);
 
-		assertEquals("camunda-admin", queryGroup(query, "camunda-admin").getName());
+		assertEquals("fluxnova-admin", queryGroup(query, "fluxnova-admin").getName());
 
-		// camunda-admin has not been queried before so http call count should increase by 1
+		// fluxnova-admin has not been queried before so http call count should increase by 1
 		assertEquals(countBefore + 1, CountingHttpRequestInterceptor.getHttpRequestCount());
 
-		// cache contains only camunda-admin at this point
-		assertEquals(Collections.singletonList("camunda-admin"), getCacheEntries());
+		// cache contains only fluxnova-admin at this point
+		assertEquals(Collections.singletonList("fluxnova-admin"), getCacheEntries());
 
 		assertEquals("cam-read-only", queryGroup(query, "cam-read-only").getName());
 
 		// cam-read-only has not been queried before so http call count should increase by 1
 		assertEquals(countBefore + 2, CountingHttpRequestInterceptor.getHttpRequestCount());
 
-		// cache contains cam-read-only and camunda-admin
-		assertEquals(Arrays.asList("cam-read-only", "camunda-admin"), getCacheEntries());
+		// cache contains cam-read-only and fluxnova-admin
+		assertEquals(Arrays.asList("cam-read-only", "fluxnova-admin"), getCacheEntries());
 
-		assertEquals("camunda-admin", queryGroup(query, "camunda-admin").getName());
+		assertEquals("fluxnova-admin", queryGroup(query, "fluxnova-admin").getName());
 
-		// camunda-admin has already been queried and is still in the cache so count stays same
+		// fluxnova-admin has already been queried and is still in the cache so count stays same
 		assertEquals(countBefore + 2, CountingHttpRequestInterceptor.getHttpRequestCount());
 
-		// cache still contains cam-read-only and camunda-admin
-		assertEquals(Arrays.asList("cam-read-only", "camunda-admin"), getCacheEntries());
+		// cache still contains cam-read-only and fluxnova-admin
+		assertEquals(Arrays.asList("cam-read-only", "fluxnova-admin"), getCacheEntries());
 
 		assertEquals("manager", queryGroup(query, "manager").getName());
 
 		// manager has not been queried before so http call count should increase by 1
 		assertEquals(countBefore + 3, CountingHttpRequestInterceptor.getHttpRequestCount());
 
-		// cam-read-only was evicted because maxSize(2) was breached and it was used fewer times than camunda-admin
-		assertEquals(Arrays.asList("camunda-admin", "manager"), getCacheEntries());
+		// cam-read-only was evicted because maxSize(2) was breached and it was used fewer times than fluxnova-admin
+		assertEquals(Arrays.asList("fluxnova-admin", "manager"), getCacheEntries());
 
 		// query cam-read-only again
 		assertEquals("cam-read-only", queryGroup(query, "cam-read-only").getName());
@@ -114,8 +112,8 @@ public class KeycloakGroupQueryTestWithCachingAndMaxSize extends AbstractKeycloa
 		// count should increase because cam-read-only was removed from cache before the query
 		assertEquals(countBefore + 4, CountingHttpRequestInterceptor.getHttpRequestCount());
 
-		// manager was evicted because it was used fewer times than camunda-admin
-		assertEquals(Arrays.asList("cam-read-only", "camunda-admin"), getCacheEntries());
+		// manager was evicted because it was used fewer times than fluxnova-admin
+		assertEquals(Arrays.asList("cam-read-only", "fluxnova-admin"), getCacheEntries());
 	}
 
 	private static Group queryGroup(GroupQuery query, String groupName) {

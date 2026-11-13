@@ -236,7 +236,7 @@ public class KeycloakIdentityProviderSession implements ReadOnlyIdentityProvider
 			restTemplate.postForEntity(keycloakConfiguration.getKeycloakIssuerUrl() + "/protocol/openid-connect/token", request, String.class);
 			return true;
 		} catch (HttpClientErrorException hcee) {
-			if (hcee.getStatusCode().equals(HttpStatus.UNAUTHORIZED)) {
+			if (hcee.getStatusCode().equals(HttpStatus.UNAUTHORIZED) || isInvalidGrant(hcee)) {
 				return false;
 			}
 			throw new IdentityProviderException("Unable to authenticate user at " + keycloakConfiguration.getKeycloakIssuerUrl(),
@@ -246,6 +246,15 @@ public class KeycloakIdentityProviderSession implements ReadOnlyIdentityProvider
 					rce);
 		}
 
+	}
+
+	private boolean isInvalidGrant(HttpClientErrorException hcee) {
+		try {
+			return hcee.getStatusCode().equals(HttpStatus.BAD_REQUEST)
+					&& "invalid_grant".equals(parseAsJsonObjectAndGetMemberAsString(hcee.getResponseBodyAsString(), "error"));
+		} catch (JsonException je) {
+			return false;
+		}
 	}
 
 	/**

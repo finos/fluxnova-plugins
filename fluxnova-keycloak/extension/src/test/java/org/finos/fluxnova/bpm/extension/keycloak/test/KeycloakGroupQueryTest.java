@@ -1,7 +1,7 @@
 package org.finos.fluxnova.bpm.extension.keycloak.test;
 
 import static org.finos.fluxnova.bpm.engine.authorization.Authorization.AUTH_TYPE_GRANT;
-import static org.junit.Assert.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 
@@ -11,22 +11,26 @@ import org.finos.fluxnova.bpm.engine.authorization.Resource;
 import org.finos.fluxnova.bpm.engine.identity.Group;
 import org.finos.fluxnova.bpm.extension.keycloak.CacheableKeycloakGroupQuery;
 import org.finos.fluxnova.bpm.extension.keycloak.KeycloakGroupQuery;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests group queries.
  */
 public class KeycloakGroupQueryTest extends AbstractKeycloakIdentityProviderTest {
 
+	@Test
 	public void testQueryNoFilter() {
 		List<Group> groupList = identityService.createGroupQuery().list();
 		assertEquals(9, groupList.size());
 	}
 
+	@Test
 	public void testQueryUnlimitedList() {
 		List<Group> groupList = identityService.createGroupQuery().unlimitedList();
 		assertEquals(9, groupList.size());
 	}
 
+	@Test
 	public void testQueryPaging() {
 		// First page
 		List<Group> result = identityService.createGroupQuery().listPage(0, 3);
@@ -45,24 +49,27 @@ public class KeycloakGroupQueryTest extends AbstractKeycloakIdentityProviderTest
 		assertEquals(0, result.stream().filter(group -> resultLast.contains(group)).count());
 	}
 
+	@Test
 	public void testFilterByGroupId() {
 		Group group = identityService.createGroupQuery().groupId(GROUP_ID_ADMIN).singleResult();
 		assertNotNull(group);
 
 		// validate result
 		assertEquals(GROUP_ID_ADMIN, group.getId());
-		assertEquals("camunda-admin", group.getName());
+		assertEquals("fluxnova-admin", group.getName());
 		assertEquals("SYSTEM", group.getType());
 
 		group = identityService.createGroupQuery().groupId("whatever").singleResult();
 		assertNull(group);
 	}
 
+	@Test
 	public void testFilterByUserId() {
 		List<Group> result = identityService.createGroupQuery().groupMember("camunda@accso.de").list();
 		assertEquals(1, result.size());
 	}
 
+	@Test
 	public void testAuthenticatedUserCanQueryOwnGroups() {
 		try {
 			processEngineConfiguration.setAuthorizationEnabled(true);
@@ -84,6 +91,7 @@ public class KeycloakGroupQueryTest extends AbstractKeycloakIdentityProviderTest
 	}
 	*/
 
+	@Test
 	public void testFilterByGroupTypeAndGroupId() {
 		Group group = identityService.createGroupQuery().groupType("SYSTEM").groupId(GROUP_ID_SYSTEM_READONLY).singleResult();
 		assertNotNull(group);
@@ -95,6 +103,7 @@ public class KeycloakGroupQueryTest extends AbstractKeycloakIdentityProviderTest
 	}
 
 
+	@Test
 	public void testFilterByGroupIdIn() {
 		List<Group> groups = identityService.createGroupQuery()
 						.groupIdIn(GROUP_ID_ADMIN, GROUP_ID_MANAGER)
@@ -102,7 +111,7 @@ public class KeycloakGroupQueryTest extends AbstractKeycloakIdentityProviderTest
 
 		assertEquals(2, groups.size());
 		for (Group group : groups) {
-			if (!group.getName().equals("camunda-admin") && !group.getName().equals("manager")) {
+			if (!group.getName().equals("fluxnova-admin") && !group.getName().equals("manager")) {
 				fail();
 			}
 		}
@@ -117,6 +126,7 @@ public class KeycloakGroupQueryTest extends AbstractKeycloakIdentityProviderTest
 	
 	}
 
+	@Test
 	public void testFilterByGroupIdInAndType() {
 		Group group = identityService.createGroupQuery()
 						.groupIdIn(GROUP_ID_ADMIN, GROUP_ID_MANAGER)
@@ -130,18 +140,20 @@ public class KeycloakGroupQueryTest extends AbstractKeycloakIdentityProviderTest
 						.groupType("SYSTEM")
 						.singleResult();
 		assertNotNull(group);
-		assertEquals("camunda-admin", group.getName());
+		assertEquals("fluxnova-admin", group.getName());
 	}
 
+	@Test
 	public void testFilterByGroupIdInAndUserId() {
 		Group group = identityService.createGroupQuery()
 						.groupIdIn(GROUP_ID_ADMIN, GROUP_ID_MANAGER)
 						.groupMember("camunda@accso.de")
 						.singleResult();
 		assertNotNull(group);
-		assertEquals("camunda-admin", group.getName());
+		assertEquals("fluxnova-admin", group.getName());
 	}
 
+	@Test
 	public void testFilterByGroupName() {
 		Group group = identityService.createGroupQuery().groupName("manager").singleResult();
 		assertNotNull(group);
@@ -154,6 +166,7 @@ public class KeycloakGroupQueryTest extends AbstractKeycloakIdentityProviderTest
 		assertNull(group);
 	}
 
+	@Test
 	public void testFilterByGroupNameLike() {
 		Group group = identityService.createGroupQuery().groupNameLike("manage*").singleResult();
 		assertNotNull(group);
@@ -166,6 +179,7 @@ public class KeycloakGroupQueryTest extends AbstractKeycloakIdentityProviderTest
 		assertNull(group);
 	}
 
+	@Test
 	public void testFilterByGroupNameAndGroupNameLike() {
 		Group group = identityService.createGroupQuery().groupNameLike("ma*").groupName("manager").singleResult();
 		assertNotNull(group);
@@ -175,6 +189,7 @@ public class KeycloakGroupQueryTest extends AbstractKeycloakIdentityProviderTest
 		assertEquals("manager", group.getName());
 	}
 
+	@Test
 	public void testFilterByGroupMember() {
 		List<Group> list = identityService.createGroupQuery().groupMember("camunda@accso.de").list();
 		assertEquals(1, list.size());
@@ -186,6 +201,7 @@ public class KeycloakGroupQueryTest extends AbstractKeycloakIdentityProviderTest
 		assertEquals(0, list.size());
 	}
 
+	@Test
 	public void testOrderByGroupId() {
 		List<Group> groupList = identityService.createGroupQuery().orderByGroupId().desc().list();
 		assertEquals(9, groupList.size());
@@ -196,6 +212,7 @@ public class KeycloakGroupQueryTest extends AbstractKeycloakIdentityProviderTest
 		assertTrue(groupList.get(6).getId().compareTo(groupList.get(7).getId()) > 0);
 	}
 
+	@Test
 	public void testOrderByGroupName() {
 		List<Group> groupList = identityService.createGroupQuery().orderByGroupName().list();
 		assertEquals(9, groupList.size());
@@ -206,6 +223,7 @@ public class KeycloakGroupQueryTest extends AbstractKeycloakIdentityProviderTest
 		assertTrue(groupList.get(6).getName().compareTo(groupList.get(7).getName()) < 0);
 	}
 
+	@Test
 	public void testOrderByGroupType() {
 		List<Group> groupList = identityService.createGroupQuery().orderByGroupType().desc().list();
 		assertEquals(9, groupList.size());
@@ -216,6 +234,7 @@ public class KeycloakGroupQueryTest extends AbstractKeycloakIdentityProviderTest
 		assertTrue(groupList.get(6).getType().compareTo(groupList.get(7).getType()) >= 0);
 	}
 
+	@Test
 	public void testQueryObjectEquality() {
 
 		KeycloakGroupQuery q1 = (KeycloakGroupQuery) identityService.createGroupQuery();

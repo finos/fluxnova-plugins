@@ -1,5 +1,7 @@
 package org.finos.fluxnova.bpm.extension.keycloak.test;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import java.util.List;
 
 import org.finos.fluxnova.bpm.engine.ProcessEngineConfiguration;
@@ -10,39 +12,33 @@ import org.finos.fluxnova.bpm.engine.identity.Group;
 import org.finos.fluxnova.bpm.engine.identity.User;
 import org.finos.fluxnova.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.finos.fluxnova.bpm.engine.impl.test.PluggableProcessEngineTestCase;
-
-import junit.extensions.TestSetup;
-import junit.framework.Test;
-import junit.framework.TestSuite;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 /**
  * Admin user configuration test for the Keycloak identity provider.
  * Use username as administratorUserId similar to the Keycloak Client Name.
  */
-public class KeycloakConfigureAdminUserIdAsUsernameSimilarToClientName extends AbstractKeycloakIdentityProviderTest {
+public class KeycloakConfigureAdminUserIdAsUsernameSimilarToClientNameTest extends AbstractKeycloakIdentityProviderTest {
 
-	public static Test suite() {
-	    return new TestSetup(new TestSuite(KeycloakConfigureAdminUserIdAsUsernameSimilarToClientName.class)) {
-
-	    	// @BeforeClass
-	        protected void setUp() throws Exception {
-	    		ProcessEngineConfigurationImpl config = (ProcessEngineConfigurationImpl) ProcessEngineConfiguration
-	    				.createProcessEngineConfigurationFromResource("camunda.configureAdminUserIdAsUsernameSimilarToClientName.cfg.xml");
-	    		configureKeycloakIdentityProviderPlugin(config);
-	    		PluggableProcessEngineTestCase.cachedProcessEngine = config.buildProcessEngine();
-	        }
-	        
-	        // @AfterClass
-	        protected void tearDown() throws Exception {
-	    		PluggableProcessEngineTestCase.cachedProcessEngine.close();
-	    		PluggableProcessEngineTestCase.cachedProcessEngine = null;
-	        }
-	    };
+	@BeforeAll
+	public static void setUpProcessEngine() throws Exception {
+		ProcessEngineConfigurationImpl config = (ProcessEngineConfigurationImpl) ProcessEngineConfiguration
+				.createProcessEngineConfigurationFromResource("camunda.configureAdminUserIdAsUsernameSimilarToClientName.cfg.xml");
+		configureKeycloakIdentityProviderPlugin(config);
+		PluggableProcessEngineTestCase.cachedProcessEngine = config.buildProcessEngine();
 	}
 
-	@Override
-	protected void tearDown() throws Exception {
-		super.tearDown();
+	@AfterAll
+	public static void tearDownProcessEngine() throws Exception {
+		PluggableProcessEngineTestCase.cachedProcessEngine.close();
+		PluggableProcessEngineTestCase.cachedProcessEngine = null;
+	}
+
+	@AfterEach
+	public void cleanUp() throws Exception {
 		// delete all created authorizations
 		processEngine.getAuthorizationService().createAuthorizationQuery().list().forEach(a -> {
 			processEngine.getAuthorizationService().deleteAuthorization(a.getId());
@@ -53,6 +49,7 @@ public class KeycloakConfigureAdminUserIdAsUsernameSimilarToClientName extends A
 	// Test configuration
 	// ------------------------------------------------------------------------
 
+	@Test
 	public void testAdminUserConfiguration() {
 		// check engine configuration
 		List<String> camundaAdminUsers = ((ProcessEngineConfigurationImpl) processEngine.getProcessEngineConfiguration()).getAdminUsers();

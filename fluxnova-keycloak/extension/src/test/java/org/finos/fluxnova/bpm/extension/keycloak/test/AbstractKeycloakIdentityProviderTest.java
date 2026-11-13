@@ -2,9 +2,10 @@ package org.finos.fluxnova.bpm.extension.keycloak.test;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.notNullValue;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ResourceBundle;
 
 import javax.net.ssl.SSLContext;
@@ -38,6 +39,8 @@ import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
 
 /**
  * Super class for all Identity Provider Tests.
@@ -84,9 +87,12 @@ public abstract class AbstractKeycloakIdentityProviderTest extends PluggableProc
 	static {
 		// read keycloak configuration
 		ResourceBundle defaults = ResourceBundle.getBundle("keycloak-default");
-		KEYCLOAK_URL = getConfigValue(defaults, "keycloak.url").replaceAll("/+$", "");
 		KEYCLOAK_ADMIN_USER = getConfigValue(defaults, "keycloak.admin.user");
 		KEYCLOAK_ADMIN_PASSWORD = getConfigValue(defaults, "keycloak.admin.password");
+		String keycloakUrl = StringUtils.hasText(System.getenv("KEYCLOAK_URL")) || StringUtils.hasText(System.getProperty("KEYCLOAK_URL"))
+				? getConfigValue(defaults, "keycloak.url")
+				: startKeycloak();
+		KEYCLOAK_URL = keycloakUrl.replaceAll("/+$", "");
 		KEYCLOAK_ENFORCE_SUBGROUPS_IN_GROUP_QUERY =
 				Boolean.valueOf(getConfigValue(defaults, "keycloak.enforce.subgroups.in.group.query"));
 		
@@ -130,9 +136,21 @@ public abstract class AbstractKeycloakIdentityProviderTest extends PluggableProc
 				val = defaults.getString(key);
 			}
 		}
-		LOG.info("Configuration {}: '{}' {}", envVarName, val, 
+		LOG.info("Configuration {}: '{}' {}", envVarName, val,
 				useDefault ? "[Environment variable not set - using default]" : "");
 		return val;
+	}
+
+	private static String startKeycloak() {
+		GenericContainer<?> keycloak = new GenericContainer<>("quay.io/keycloak/keycloak:26.8.2")
+				.withCommand("start-dev")
+				.withEnv("KC_HTTP_RELATIVE_PATH", "/auth")
+				.withEnv("KC_BOOTSTRAP_ADMIN_USERNAME", KEYCLOAK_ADMIN_USER)
+				.withEnv("KC_BOOTSTRAP_ADMIN_PASSWORD", KEYCLOAK_ADMIN_PASSWORD)
+				.withExposedPorts(8080)
+				.waitingFor(Wait.forHttp("/auth/realms/master").withStartupTimeout(Duration.ofMinutes(3)));
+		keycloak.start();
+		return "http://" + keycloak.getHost() + ":" + keycloak.getMappedPort(8080) + "/auth";
 	}
 	
 	/**
@@ -179,22 +197,6 @@ public abstract class AbstractKeycloakIdentityProviderTest extends PluggableProc
 		throw new IllegalStateException("KeycloakIdentityProviderPlugin not found in process engine plugins.");
 	}
 	
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	protected void setUp() throws Exception {
-		super.setUp();
-	}
-
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	protected void tearDown() throws Exception {
-		super.tearDown();
-	}
-
 	// ------------------------------------------------------------------------
 	// Test setup
 	// ------------------------------------------------------------------------
@@ -217,7 +219,7 @@ public abstract class AbstractKeycloakIdentityProviderTest extends PluggableProc
 		CLIENT_SECRET = createClient(headers, realm, "camunda-identity-service", "http://localhost:8080/login");
 
 	    // Create groups
-		GROUP_ID_ADMIN = createGroup(headers, realm, "camunda-admin", true);
+		GROUP_ID_ADMIN = createGroup(headers, realm, "fluxnova-admin", true);
 		GROUP_ID_TEAMLEAD = createGroup(headers, realm, "teamlead", false);
 		GROUP_ID_MANAGER = createGroup(headers, realm, "manager", false);
 		GROUP_ID_SYSTEM_READONLY = createGroup(headers, realm, "cam-read-only", true);
@@ -370,7 +372,7 @@ public abstract class AbstractKeycloakIdentityProviderTest extends PluggableProc
 	 */
 	private static String createClient(HttpHeaders headers, String realm, String clientId, String redirectUri) throws JSONException {
 	    // Create Client
-	    String clientData = "{\"id\":null,\"clientId\":\"" + clientId + "\",\"surrogateAuthRequired\":false,\"enabled\":true,\"clientAuthenticatorType\":\"client-secret\",\"redirectUris\":[\"" + redirectUri + "\"],\"webOrigins\":[],\"notBefore\":0,\"bearerOnly\":false,\"consentRequired\":false,\"standardFlowEnabled\":true,\"implicitFlowEnabled\":false,\"directAccessGrantsEnabled\":true,\"serviceAccountsEnabled\":true,\"publicClient\":false,\"frontchannelLogout\":false,\"protocol\":\"openid-connect\",\"attributes\":{\"client_credentials.use_refresh_token\":\"true\",\"saml.assertion.signature\":\"false\",\"saml.force.post.binding\":\"false\",\"saml.multivalued.roles\":\"false\",\"saml.encrypt\":\"false\",\"saml.server.signature\":\"false\",\"saml.server.signature.keyinfo.ext\":\"false\",\"exclude.session.state.from.auth.response\":\"false\",\"saml_force_name_id_format\":\"false\",\"saml.client.signature\":\"false\",\"tls.client.certificate.bound.access.tokens\":\"false\",\"saml.authnstatement\":\"false\",\"display.on.consent.screen\":\"false\",\"saml.onetimeuse.condition\":\"false\"},\"authenticationFlowBindingOverrides\":{},\"fullScopeAllowed\":true,\"nodeReRegistrationTimeout\":-1,\"protocolMappers\":[{\"id\":null,\"name\":\"Client Host\",\"protocol\":\"openid-connect\",\"protocolMapper\":\"oidc-usersessionmodel-note-mapper\",\"consentRequired\":false,\"config\":{\"user.session.note\":\"clientHost\",\"userinfo.token.claim\":\"true\",\"id.token.claim\":\"true\",\"access.token.claim\":\"true\",\"claim.name\":\"clientHost\",\"jsonType.label\":\"String\"}},{\"id\":null,\"name\":\"Client IP Address\",\"protocol\":\"openid-connect\",\"protocolMapper\":\"oidc-usersessionmodel-note-mapper\",\"consentRequired\":false,\"config\":{\"user.session.note\":\"clientAddress\",\"userinfo.token.claim\":\"true\",\"id.token.claim\":\"true\",\"access.token.claim\":\"true\",\"claim.name\":\"clientAddress\",\"jsonType.label\":\"String\"}},{\"id\":null,\"name\":\"Client ID\",\"protocol\":\"openid-connect\",\"protocolMapper\":\"oidc-usersessionmodel-note-mapper\",\"consentRequired\":false,\"config\":{\"user.session.note\":\"clientId\",\"userinfo.token.claim\":\"true\",\"id.token.claim\":\"true\",\"access.token.claim\":\"true\",\"claim.name\":\"clientId\",\"jsonType.label\":\"String\"}}],\"defaultClientScopes\":[\"web-origins\",\"role_list\",\"profile\",\"roles\",\"email\"],\"optionalClientScopes\":[\"address\",\"phone\",\"offline_access\"],\"access\":{\"view\":true,\"configure\":true,\"manage\":true}}";
+	    String clientData = "{\"id\":null,\"clientId\":\"" + clientId + "\",\"surrogateAuthRequired\":false,\"enabled\":true,\"clientAuthenticatorType\":\"client-secret\",\"redirectUris\":[\"" + redirectUri + "\"],\"webOrigins\":[],\"notBefore\":0,\"bearerOnly\":false,\"consentRequired\":false,\"standardFlowEnabled\":true,\"implicitFlowEnabled\":false,\"directAccessGrantsEnabled\":true,\"serviceAccountsEnabled\":true,\"publicClient\":false,\"frontchannelLogout\":false,\"protocol\":\"openid-connect\",\"attributes\":{\"client_credentials.use_refresh_token\":\"true\",\"saml.assertion.signature\":\"false\",\"saml.force.post.binding\":\"false\",\"saml.multivalued.roles\":\"false\",\"saml.encrypt\":\"false\",\"saml.server.signature\":\"false\",\"saml.server.signature.keyinfo.ext\":\"false\",\"exclude.session.state.from.auth.response\":\"false\",\"saml_force_name_id_format\":\"false\",\"saml.client.signature\":\"false\",\"tls.client.certificate.bound.access.tokens\":\"false\",\"saml.authnstatement\":\"false\",\"display.on.consent.screen\":\"false\",\"saml.onetimeuse.condition\":\"false\"},\"authenticationFlowBindingOverrides\":{},\"fullScopeAllowed\":true,\"nodeReRegistrationTimeout\":-1,\"protocolMappers\":[{\"id\":null,\"name\":\"Client Host\",\"protocol\":\"openid-connect\",\"protocolMapper\":\"oidc-usersessionmodel-note-mapper\",\"consentRequired\":false,\"config\":{\"user.session.note\":\"clientHost\",\"userinfo.token.claim\":\"true\",\"id.token.claim\":\"true\",\"access.token.claim\":\"true\",\"claim.name\":\"clientHost\",\"jsonType.label\":\"String\"}},{\"id\":null,\"name\":\"Client IP Address\",\"protocol\":\"openid-connect\",\"protocolMapper\":\"oidc-usersessionmodel-note-mapper\",\"consentRequired\":false,\"config\":{\"user.session.note\":\"clientAddress\",\"userinfo.token.claim\":\"true\",\"id.token.claim\":\"true\",\"access.token.claim\":\"true\",\"claim.name\":\"clientAddress\",\"jsonType.label\":\"String\"}},{\"id\":null,\"name\":\"Client ID\",\"protocol\":\"openid-connect\",\"protocolMapper\":\"oidc-usersessionmodel-note-mapper\",\"consentRequired\":false,\"config\":{\"user.session.note\":\"clientId\",\"userinfo.token.claim\":\"true\",\"id.token.claim\":\"true\",\"access.token.claim\":\"true\",\"claim.name\":\"clientId\",\"jsonType.label\":\"String\"}}],\"defaultClientScopes\":[\"web-origins\",\"role_list\",\"profile\",\"roles\",\"email\",\"kc-admin-api\"],\"optionalClientScopes\":[\"address\",\"phone\",\"offline_access\"],\"access\":{\"view\":true,\"configure\":true,\"manage\":true}}";
 	    HttpEntity<String>request = new HttpEntity<>(clientData, headers);
 	    ResponseEntity<String>response = restTemplate.postForEntity(KEYCLOAK_URL + "/admin/realms/" + realm + "/clients", request, String.class);
 	    assertThat(response.getStatusCode(), equalTo(HttpStatus.CREATED));

@@ -1,44 +1,41 @@
 package org.finos.fluxnova.bpm.extension.keycloak.test;
 
-import junit.extensions.TestSetup;
-import junit.framework.Test;
-import junit.framework.TestSuite;
+import static org.junit.jupiter.api.Assertions.*;
+
 import org.finos.fluxnova.bpm.engine.ProcessEngineConfiguration;
-import org.finos.fluxnova.bpm.engine.identity.Group;
+import org.finos.fluxnova.bpm.engine.identity.User;
 import org.finos.fluxnova.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.finos.fluxnova.bpm.engine.impl.test.PluggableProcessEngineTestCase;
 import org.finos.fluxnova.bpm.extension.keycloak.plugin.KeycloakIdentityProviderPlugin;
 import org.finos.fluxnova.bpm.extension.keycloak.test.util.CountingHttpRequestInterceptor;
 
 import java.util.List;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 /**
- * Tests group queries with caching enabled.
+ * User query test for the Keycloak identity provider with caching enabled.
  */
-public class KeycloakGroupQueryTestWithCaching extends AbstractKeycloakIdentityProviderTest {
+public class KeycloakUserQueryWithCachingTest extends AbstractKeycloakIdentityProviderTest {
 
-	public static Test suite() {
-		return new TestSetup(new TestSuite(KeycloakUserQueryTestWithCaching.class)) {
-
-			// @BeforeClass
-			protected void setUp() throws Exception {
-				ProcessEngineConfigurationImpl config = (ProcessEngineConfigurationImpl) ProcessEngineConfiguration
-								.createProcessEngineConfigurationFromResource("camunda.enableCaching.cfg.xml");
-				configureKeycloakIdentityProviderPlugin(config);
-				PluggableProcessEngineTestCase.cachedProcessEngine = config.buildProcessEngine();
-			}
-
-			// @AfterClass
-			protected void tearDown() throws Exception {
-				PluggableProcessEngineTestCase.cachedProcessEngine.close();
-				PluggableProcessEngineTestCase.cachedProcessEngine = null;
-			}
-		};
+	@BeforeAll
+	public static void setUpProcessEngine() throws Exception {
+		ProcessEngineConfigurationImpl config = (ProcessEngineConfigurationImpl) ProcessEngineConfiguration
+						.createProcessEngineConfigurationFromResource("camunda.enableCaching.cfg.xml");
+		configureKeycloakIdentityProviderPlugin(config);
+		PluggableProcessEngineTestCase.cachedProcessEngine = config.buildProcessEngine();
 	}
 
-	@Override
-	protected void tearDown() throws Exception {
-		super.tearDown();
+	@AfterAll
+	public static void tearDownProcessEngine() throws Exception {
+		PluggableProcessEngineTestCase.cachedProcessEngine.close();
+		PluggableProcessEngineTestCase.cachedProcessEngine = null;
+	}
+
+	@AfterEach
+	public void cleanUp() throws Exception {
 		// delete all created authorizations
 		processEngine.getAuthorizationService().createAuthorizationQuery().list().forEach(a -> {
 			processEngine.getAuthorizationService().deleteAuthorization(a.getId());
@@ -62,107 +59,110 @@ public class KeycloakGroupQueryTestWithCaching extends AbstractKeycloakIdentityP
 	// Test configuration
 	// ------------------------------------------------------------------------
 
+	@Test
 	public void testCacheEnabledQueryWithNoFilter() {
 		int countBefore = CountingHttpRequestInterceptor.getHttpRequestCount();
 
-		List<Group> groupList = identityService.createGroupQuery().list();
-		assertEquals(9, groupList.size());
+		List<User> result = identityService.createUserQuery().list();
+
+		assertEquals(5, result.size());
 
 		// non cached query. http request count should have increased
 		assertEquals(countBefore + 1, CountingHttpRequestInterceptor.getHttpRequestCount());
 
 		// run query again
-		assertEquals(9, identityService.createGroupQuery().list().size());
+		assertEquals(5, identityService.createUserQuery().list().size());
 
 		// request count should be same as before
 		assertEquals(countBefore + 1, CountingHttpRequestInterceptor.getHttpRequestCount());
 	}
 
-	public void testCacheEnabledQueryFilterByGroupId() {
+	@Test
+	public void testCacheEnabledQueryFilterByUserId() {
 		int countBefore = CountingHttpRequestInterceptor.getHttpRequestCount();
 
-		Group group = identityService.createGroupQuery().groupId(GROUP_ID_ADMIN).singleResult();
-		assertNotNull(group);
+		User user = identityService.createUserQuery().userId("camunda@accso.de").singleResult();
+		assertNotNull(user);
 
-		// validate result
-		assertEquals(GROUP_ID_ADMIN, group.getId());
-		assertEquals("camunda-admin", group.getName());
-		assertEquals("SYSTEM", group.getType());
+		// validate user
+		assertEquals("camunda@accso.de", user.getId());
+		assertEquals("Admin", user.getFirstName());
+		assertEquals("Camunda", user.getLastName());
+		assertEquals("camunda@accso.de", user.getEmail());
 
 		// non cached query. http request count should have increased
 		assertEquals(countBefore + 1, CountingHttpRequestInterceptor.getHttpRequestCount());
 
 		// run query again
-		assertEquals(group, identityService.createGroupQuery().groupId(GROUP_ID_ADMIN).singleResult());
+		assertEquals(user, identityService.createUserQuery().userId("camunda@accso.de").singleResult());
 
 		// request count should be same as before
 		assertEquals(countBefore + 1, CountingHttpRequestInterceptor.getHttpRequestCount());
 
-		group = identityService.createGroupQuery().groupId("whatever").singleResult();
-		assertNull(group);
+		user = identityService.createUserQuery().userId("non-existing").singleResult();
+		assertNull(user);
 	}
 
+	@Test
 	public void testCacheEnabledQueryWithPaging() {
 		int countBefore = CountingHttpRequestInterceptor.getHttpRequestCount();
 
 		// First page
-		List<Group> result = identityService.createGroupQuery().listPage(0, 3);
-		assertEquals(3, result.size());
+		List<User> result = identityService.createUserQuery().listPage(0, 2);
+		assertEquals(2, result.size());
 
 		// non cached query. http request count should have increased
 		assertEquals(countBefore + 1, CountingHttpRequestInterceptor.getHttpRequestCount());
 
 		// run query again
-		assertEquals(3, identityService.createGroupQuery().listPage(0, 3).size());
+		assertEquals(2, identityService.createUserQuery().listPage(0, 2).size());
 
 		// request count should be same as before
 		assertEquals(countBefore + 1, CountingHttpRequestInterceptor.getHttpRequestCount());
 
 		// Next page
-		List<Group> resultNext = identityService.createGroupQuery().listPage(3, 3);
+		List<User> resultNext = identityService.createUserQuery().listPage(2, 10);
 		assertEquals(3, resultNext.size());
 
-		// Next page
-		List<Group> resultLast = identityService.createGroupQuery().listPage(6, 10);
-		assertEquals(3, resultLast.size());
-
 		// unique results
-		assertEquals(0, result.stream().filter(group -> resultNext.contains(group)).count());
-		assertEquals(0, result.stream().filter(group -> resultLast.contains(group)).count());
+		assertEquals(0, result.stream().filter(user -> resultNext.contains(user)).count());
 	}
 
-	public void testCacheEnabledQueryOrderByGroupId() {
+	@Test
+	public void testCacheEnabledQueryOrderByUserId() {
 		int countBefore = CountingHttpRequestInterceptor.getHttpRequestCount();
 
-		List<Group> groupList = identityService.createGroupQuery().orderByGroupId().desc().list();
-		assertEquals(9, groupList.size());
-		assertTrue(groupList.get(0).getId().compareTo(groupList.get(1).getId()) > 0);
-		assertTrue(groupList.get(1).getId().compareTo(groupList.get(2).getId()) > 0);
-		assertTrue(groupList.get(2).getId().compareTo(groupList.get(3).getId()) > 0);
-		assertTrue(groupList.get(5).getId().compareTo(groupList.get(6).getId()) > 0);
-		assertTrue(groupList.get(6).getId().compareTo(groupList.get(7).getId()) > 0);
+		List<User> result = identityService.createUserQuery().orderByUserId().desc().list();
+		assertEquals(5, result.size());
+		assertTrue(result.get(0).getId().compareTo(result.get(1).getId()) > 0);
+		assertTrue(result.get(1).getId().compareTo(result.get(2).getId()) > 0);
 
 		// non cached query. http request count should have increased
 		assertEquals(countBefore + 1, CountingHttpRequestInterceptor.getHttpRequestCount());
 
 		// run query again
-		assertEquals(9, identityService.createGroupQuery().orderByGroupId().desc().list().size());
+		assertEquals(5, identityService.createUserQuery().orderByUserId().desc().list().size());
 
 		// request count should be same as before
 		assertEquals(countBefore + 1, CountingHttpRequestInterceptor.getHttpRequestCount());
 	}
 
+	@Test
 	public void testAuthenticatedUserCanQueryOwnGroupsWhenCacheIsEnabled() {
 		try {
 			processEngineConfiguration.setAuthorizationEnabled(true);
-			identityService.setAuthenticatedUserId("johnfoo@gmail.com");
 
-			assertEquals(0, identityService.createGroupQuery().groupMember("camunda@accso.de").count());
-			assertEquals(2, identityService.createGroupQuery().groupMember("johnfoo@gmail.com").count());
+			identityService.setAuthenticatedUserId("non-existing");
+			assertEquals(0, identityService.createUserQuery().count());
+
+			identityService.setAuthenticatedUserId("camunda@accso.de");
+			assertEquals(1, identityService.createUserQuery().count());
 
 			// auth should not be cached and should be performed 
 			// on every query regardless of caching being enabled or not 
-			assertEquals(0, identityService.createGroupQuery().groupMember("camunda@accso.de").count());
+			identityService.setAuthenticatedUserId("non-existing");
+			assertEquals(0, identityService.createUserQuery().count());
+
 		} finally {
 			processEngineConfiguration.setAuthorizationEnabled(false);
 			identityService.clearAuthentication();

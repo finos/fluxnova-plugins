@@ -1,11 +1,14 @@
 package org.finos.fluxnova.bpm.extension.keycloak.test;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import java.lang.reflect.Field;
 
 import org.finos.fluxnova.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.finos.fluxnova.bpm.extension.keycloak.KeycloakContext;
 import org.finos.fluxnova.bpm.extension.keycloak.KeycloakContextProvider;
 import org.finos.fluxnova.bpm.extension.keycloak.KeycloakIdentityProviderFactory;
+import org.junit.jupiter.api.Test;
 
 /**
  * Refresh access token test.
@@ -16,6 +19,7 @@ public class KeycloakRefreshTokenTest extends AbstractKeycloakIdentityProviderTe
 	 * Tests refreshing access token.
 	 * @throws Exception in case of errors
 	 */
+	@Test
 	public void testRefreshToken() throws Exception {
 		// access Keycloak
 	    assertEquals(5, identityService.createUserQuery().count());

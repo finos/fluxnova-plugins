@@ -1,5 +1,7 @@
 package org.finos.fluxnova.bpm.extension.keycloak.test;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,10 +11,9 @@ import org.finos.fluxnova.bpm.engine.identity.User;
 import org.finos.fluxnova.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.finos.fluxnova.bpm.engine.impl.test.PluggableProcessEngineTestCase;
 import org.springframework.http.HttpHeaders;
-
-import junit.extensions.TestSetup;
-import junit.framework.Test;
-import junit.framework.TestSuite;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 /**
  * User query test for the Keycloak identity provider.
@@ -22,40 +23,36 @@ public class KeycloakUseUsernameAsUserIdQueryTest extends AbstractKeycloakIdenti
 
 	static List<String> USER_IDS = new ArrayList<String>();
 
-	public static Test suite() {
-	    return new TestSetup(new TestSuite(KeycloakUseUsernameAsUserIdQueryTest.class)) {
+	@BeforeAll
+	public static void setUpProcessEngine() throws Exception {
+		// setup Keycloak special test users
+		// -------------------------------------
+		HttpHeaders headers = authenticateKeycloakAdmin();
+		String realm = "test";
+		USER_IDS.add(createUser(headers, realm, "hans.wurst", null, null, null, null));
 
-	    	// @BeforeClass
-	        protected void setUp() throws Exception {
-	    		// setup Keycloak special test users
-	        	// -------------------------------------
-	    		HttpHeaders headers = authenticateKeycloakAdmin();
-	    		String realm = "test";
-	    		USER_IDS.add(createUser(headers, realm, "hans.wurst", null, null, null, null));
+		ProcessEngineConfigurationImpl config = (ProcessEngineConfigurationImpl) ProcessEngineConfiguration
+				.createProcessEngineConfigurationFromResource("camunda.useUsernameAsCamundaUserId.cfg.xml");
+		configureKeycloakIdentityProviderPlugin(config);
+		PluggableProcessEngineTestCase.cachedProcessEngine = config.buildProcessEngine();
+	}
 
-	    		ProcessEngineConfigurationImpl config = (ProcessEngineConfigurationImpl) ProcessEngineConfiguration
-	    				.createProcessEngineConfigurationFromResource("camunda.useUsernameAsCamundaUserId.cfg.xml");
-	    		configureKeycloakIdentityProviderPlugin(config);
-	    		PluggableProcessEngineTestCase.cachedProcessEngine = config.buildProcessEngine();
-	        }
-	        
-	        // @AfterClass
-	        protected void tearDown() throws Exception {
-	    		PluggableProcessEngineTestCase.cachedProcessEngine.close();
-	    		PluggableProcessEngineTestCase.cachedProcessEngine = null;
+	@AfterAll
+	public static void tearDownProcessEngine() throws Exception {
+		PluggableProcessEngineTestCase.cachedProcessEngine.close();
+		PluggableProcessEngineTestCase.cachedProcessEngine = null;
 
-	    		// delete special test users
-	    		HttpHeaders headers = authenticateKeycloakAdmin();
-	    		String realm = "test";
-	    		USER_IDS.forEach(u -> deleteUser(headers, realm, u));
-	        }
-	    };
+		// delete special test users
+		HttpHeaders headers = authenticateKeycloakAdmin();
+		String realm = "test";
+		USER_IDS.forEach(u -> deleteUser(headers, realm, u));
 	}
 	
 	// ------------------------------------------------------------------------
 	// Authorization tests
 	// ------------------------------------------------------------------------
 	
+	@Test
 	public void testKeycloakLoginSuccess() {
 		assertTrue(identityService.checkPassword("camunda", "camunda1!"));
 	}
@@ -64,6 +61,7 @@ public class KeycloakUseUsernameAsUserIdQueryTest extends AbstractKeycloakIdenti
 	// User Query tests
 	// ------------------------------------------------------------------------
 	
+	@Test
 	public void testUserQueryFilterByUserId() {
 		User user = identityService.createUserQuery().userId("hans.mustermann").singleResult();
 		assertNotNull(user);
@@ -81,6 +79,7 @@ public class KeycloakUseUsernameAsUserIdQueryTest extends AbstractKeycloakIdenti
 		assertNull(user);
 	}
 
+	@Test
 	public void testUserQueryFilterByUserIdIn() {
 		List<User> users = identityService.createUserQuery().userIdIn("camunda", "hans.mustermann").list();
 		assertNotNull(users);
@@ -91,6 +90,7 @@ public class KeycloakUseUsernameAsUserIdQueryTest extends AbstractKeycloakIdenti
 		assertEquals(1, users.size());
 	}
 
+	@Test
 	public void testUserQueryFilterByEmail() {
 		User user = identityService.createUserQuery().userEmail("camunda@accso.de").singleResult();
 		assertNotNull(user);
@@ -105,6 +105,7 @@ public class KeycloakUseUsernameAsUserIdQueryTest extends AbstractKeycloakIdenti
 		assertNull(user);
 	}
 	
+	@Test
 	public void testUserQueryFilterByNonExistingAttributeLike() {
 		// hans.wurst has no other attributes than his username set
 		User user = identityService.createUserQuery().userId("hans.wurst").userEmailLike("*").singleResult();
@@ -121,6 +122,7 @@ public class KeycloakUseUsernameAsUserIdQueryTest extends AbstractKeycloakIdenti
 		assertNull(user);
 	}
 
+	@Test
 	public void testUserQueryFilterByGroupIdAndId() {
 		List<User> result = identityService.createUserQuery()
 				.memberOfGroup(GROUP_ID_ADMIN)
@@ -142,6 +144,7 @@ public class KeycloakUseUsernameAsUserIdQueryTest extends AbstractKeycloakIdenti
 		
 	}
 
+	@Test
 	public void testAuthenticatedUserSeesHimself() {
 		try {
 			processEngineConfiguration.setAuthorizationEnabled(true);
@@ -162,6 +165,7 @@ public class KeycloakUseUsernameAsUserIdQueryTest extends AbstractKeycloakIdenti
 	// Group query tests
 	// ------------------------------------------------------------------------
 
+	@Test
 	public void testGroupQueryFilterByUserId() {
 		List<Group> result = identityService.createGroupQuery().groupMember("camunda").list();
 		assertEquals(1, result.size());
@@ -170,13 +174,14 @@ public class KeycloakUseUsernameAsUserIdQueryTest extends AbstractKeycloakIdenti
 		assertEquals(0, result.size());
 	}
 
+	@Test
 	public void testFilterByGroupIdAndUserId() {
 		Group group = identityService.createGroupQuery()
 				.groupId(GROUP_ID_ADMIN)
 				.groupMember("camunda")
 				.singleResult();
 		assertNotNull(group);
-		assertEquals("camunda-admin", group.getName());
+		assertEquals("fluxnova-admin", group.getName());
 
 		group = identityService.createGroupQuery()
 				.groupId("non-exist")
@@ -191,13 +196,14 @@ public class KeycloakUseUsernameAsUserIdQueryTest extends AbstractKeycloakIdenti
 		assertNull(group);
 	}
 	
+	@Test
 	public void testFilterByGroupIdInAndUserId() {
 		Group group = identityService.createGroupQuery()
 				.groupIdIn(GROUP_ID_ADMIN, GROUP_ID_TEAMLEAD)
 				.groupMember("camunda")
 				.singleResult();
 		assertNotNull(group);
-		assertEquals("camunda-admin", group.getName());
+		assertEquals("fluxnova-admin", group.getName());
 
 		group = identityService.createGroupQuery()
 				.groupIdIn(GROUP_ID_ADMIN, GROUP_ID_TEAMLEAD)
@@ -206,6 +212,7 @@ public class KeycloakUseUsernameAsUserIdQueryTest extends AbstractKeycloakIdenti
 		assertNull(group);
 	}
 	
+	@Test
 	public void testGroupQueryFilterByUserIdSimilarToClientName() {
 		Group group = identityService.createGroupQuery().groupMember("camunda-identity-service").singleResult();
 		assertNotNull(group);

@@ -41,7 +41,7 @@
     <property name="disableSSLCertificateValidation" value="true" />
     <property name="useEmailAsCamundaUserId" value="false" />
 
-    <property name="administratorGroupName" value="camunda-admin" />
+    <property name="administratorGroupName" value="fluxnova-admin" />
   </bean>
 
 </beans>

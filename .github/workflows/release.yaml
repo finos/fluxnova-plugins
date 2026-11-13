@@ -47,6 +47,7 @@ on:
           - fluxnova-backward-compatibility-plugin
           - agentic
           - agentic-subprocess
+          - fluxnova-keycloak
       dry-run:
         description: "Perform a dry run"
         required: false

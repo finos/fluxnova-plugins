@@ -130,7 +130,7 @@ public class KeycloakUserService extends KeycloakServiceBase {
 			if (!response.getStatusCode().equals(HttpStatus.OK)) {
 				throw new IdentityProviderException(
 						"Unable to read group members from " + keycloakConfiguration.getKeycloakAdminUrl()
-								+ ": HTTP status code " + response.getStatusCodeValue());
+								+ ": HTTP status code " + response.getStatusCode().value());
 			}
 
 			JsonArray searchResult = parseAsJsonArray(response.getBody());
@@ -184,7 +184,7 @@ public class KeycloakUserService extends KeycloakServiceBase {
 			if (!response.getStatusCode().equals(HttpStatus.OK)) {
 				throw new IdentityProviderException(
 						"Unable to read users from " + keycloakConfiguration.getKeycloakAdminUrl()
-								+ ": HTTP status code " + response.getStatusCodeValue());
+								+ ": HTTP status code " + response.getStatusCode().value());
 			}
 
 			JsonArray searchResult = parseAsJsonArray(response.getBody());

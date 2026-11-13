@@ -14,8 +14,8 @@
       <unpack>true</unpack>
       <scope>compile</scope>
       <includes>
-      	  <include>org.finos.fluxnova.bpm.extension:camunda-platform-7-keycloak</include>
-          <include>org.finos.fluxnova.bpm.extension:camunda-platform-7-keycloak-all</include>
+      	  <include>org.finos.fluxnova.bpm.extension:fluxnova-keycloak</include>
+          <include>org.finos.fluxnova.bpm.extension:fluxnova-keycloak-all</include>
       </includes>
     </dependencySet>
   </dependencySets>
