@@ -260,11 +260,16 @@ public class QueryToolRegistrar {
             Object maxResultsRaw = args.get("maxResults");
             if (maxResultsRaw != null) {
                 maxResults = objectMapper.convertValue(maxResultsRaw, Integer.class);
+                // LLMs sometimes send 0 or a negative number to mean "no limit"; treat it as not specified
+                // rather than returning an empty (and misleading) result.
+                if (maxResults != null && maxResults <= 0) {
+                    maxResults = null;
+                }
             }
             return method.execute(queryDto, maxResults);
         });
 
-                if (toolRegistry.register(config)) {
+        if (toolRegistry.register(config)) {
             LOG.debug("MCP - Registered query tool: {}", toolName);
         }
     }
@@ -291,7 +296,7 @@ public class QueryToolRegistrar {
             return method.apply(paramValue);
         });
 
-                if (toolRegistry.register(config)) {
+        if (toolRegistry.register(config)) {
             LOG.debug("MCP - Registered XML tool: {}", toolName);
         }
     }

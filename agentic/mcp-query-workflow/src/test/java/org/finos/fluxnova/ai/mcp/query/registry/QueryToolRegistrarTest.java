@@ -11,7 +11,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Map;
 import java.util.Set;
+
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -141,5 +146,30 @@ class QueryToolRegistrarTest {
         verify(toolRegistry).register(argThat(config ->
                 config.description() != null && config.description().contains("Query user tasks")
         ));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, -1, -100})
+    void shouldTreatNonPositiveMaxResultsAsNotSpecified(int maxResults) throws Exception {
+        QueryToolRegistrar registrar = new QueryToolRegistrar(toolRegistry, objectMapper, new QueryToolsProperties());
+        registrar.registerTaskTools(taskQueryMcpTools);
+        ArgumentCaptor<ToolConfig> captor = ArgumentCaptor.forClass(ToolConfig.class);
+        verify(toolRegistry).register(captor.capture());
+
+        captor.getValue().handler().execute(Map.of("maxResults", maxResults));
+
+        verify(taskQueryMcpTools).queryTasks(null, null);
+    }
+
+    @Test
+    void shouldPassPositiveMaxResultsThrough() throws Exception {
+        QueryToolRegistrar registrar = new QueryToolRegistrar(toolRegistry, objectMapper, new QueryToolsProperties());
+        registrar.registerTaskTools(taskQueryMcpTools);
+        ArgumentCaptor<ToolConfig> captor = ArgumentCaptor.forClass(ToolConfig.class);
+        verify(toolRegistry).register(captor.capture());
+
+        captor.getValue().handler().execute(Map.of("maxResults", 5));
+
+        verify(taskQueryMcpTools).queryTasks(null, 5);
     }
 }

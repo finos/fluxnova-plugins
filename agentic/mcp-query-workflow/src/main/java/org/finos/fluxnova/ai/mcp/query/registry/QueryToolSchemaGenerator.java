@@ -34,7 +34,7 @@ class QueryToolSchemaGenerator {
         properties.put("maxResults", Map.of(
                 "type", "integer",
                 "description", "Maximum number of results to return. "
-                        + "If not specified, defaults to the configured maximum. "
+                        + "If not specified (or not positive), defaults to the configured maximum. "
                         + "Cannot exceed the configured maximum."
         ));
 
