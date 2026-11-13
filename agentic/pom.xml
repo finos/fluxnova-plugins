@@ -20,6 +20,7 @@
     <modules>
         <module>mcp-server-plugin</module>
         <module>mcp-process-start-event</module>
+        <module>mcp-query-workflow</module>
     </modules>
 
 </project>
