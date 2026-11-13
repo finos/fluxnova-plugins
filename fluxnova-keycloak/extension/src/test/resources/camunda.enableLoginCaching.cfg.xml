@@ -4,7 +4,7 @@
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:schemaLocation="http://www.springframework.org/schema/beans   http://www.springframework.org/schema/beans/spring-beans.xsd">
 
-  <bean id="processEngineConfiguration" class="org.camunda.bpm.engine.impl.cfg.StandaloneInMemProcessEngineConfiguration">
+  <bean id="processEngineConfiguration" class="org.finos.fluxnova.bpm.engine.impl.cfg.StandaloneInMemProcessEngineConfiguration">
   
     <property name="processEngineName" value="KeycloakIdentityServiceTest-engine" />
   
@@ -30,7 +30,7 @@
     
   </bean>
 
-  <bean id="keycloakIdentityProviderPlugin" class="org.camunda.bpm.extension.keycloak.test.util.CacheAwareKeycloakIdentityProviderPluginForTest">
+  <bean id="keycloakIdentityProviderPlugin" class="org.finos.fluxnova.bpm.extension.keycloak.test.util.CacheAwareKeycloakIdentityProviderPluginForTest">
   
     <property name="keycloakIssuerUrl" value="http://localhost:9000/realms/test" />
     <property name="keycloakAdminUrl" value="http://localhost:9000/admin/realms/test" />
@@ -45,7 +45,7 @@
     <property name="loginCacheExpirationTimeoutMin" value="5"/>
     <property name="customHttpRequestInterceptors"  >
       <list>
-        <bean class="org.camunda.bpm.extension.keycloak.test.util.CountingHttpRequestInterceptor"/>
+        <bean class="org.finos.fluxnova.bpm.extension.keycloak.test.util.CountingHttpRequestInterceptor"/>
       </list>
     </property>
     

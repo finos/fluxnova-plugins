@@ -2,7 +2,7 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<parent>
-	  <groupId>org.camunda.bpm.extension</groupId>
+	  <groupId>org.finos.fluxnova.bpm.extension</groupId>
 	  <artifactId>camunda-platform-7-keycloak-root</artifactId>
 	  <version>7.24.1-SNAPSHOT</version>
 	</parent>
@@ -21,7 +21,7 @@
 
 	<dependencies>
 		<dependency>
-			<groupId>org.camunda.bpm.extension</groupId>
+			<groupId>org.finos.fluxnova.bpm.extension</groupId>
 			<artifactId>camunda-platform-7-keycloak</artifactId>
 		</dependency>
 
@@ -93,7 +93,7 @@
 							<createSourcesJar>true</createSourcesJar>
 							<artifactSet>
 								<excludes>
-									<exclude>org.camunda.commons:*</exclude>
+									<exclude>org.finos.fluxnova.commons:*</exclude>
 									<exclude>org.slf4j:*</exclude>
 								</excludes>
 							</artifactSet>
@@ -150,7 +150,7 @@
 					<includeDependencySources>true</includeDependencySources>
 					<includeTransitiveDependencySources>true</includeTransitiveDependencySources>
 					<dependencySourceIncludes>
-						<include>org.camunda.bpm.extension:camunda-platform-7-keycloak</include>
+						<include>org.finos.fluxnova.bpm.extension:camunda-platform-7-keycloak</include>
 					</dependencySourceIncludes>
 					<additionalDependencies>
 						<additionalDependency>

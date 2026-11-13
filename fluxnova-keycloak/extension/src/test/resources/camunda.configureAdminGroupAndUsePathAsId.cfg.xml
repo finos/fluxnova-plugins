@@ -4,7 +4,7 @@
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:schemaLocation="http://www.springframework.org/schema/beans   http://www.springframework.org/schema/beans/spring-beans.xsd">
 
-  <bean id="processEngineConfiguration" class="org.camunda.bpm.engine.impl.cfg.StandaloneInMemProcessEngineConfiguration">
+  <bean id="processEngineConfiguration" class="org.finos.fluxnova.bpm.engine.impl.cfg.StandaloneInMemProcessEngineConfiguration">
   
     <property name="processEngineName" value="KeycloakAdminGroupAndUsePathAsId-engine" />
   
@@ -31,7 +31,7 @@
     
   </bean>
   
-  <bean id="keycloakIdentityProviderPlugin" class="org.camunda.bpm.extension.keycloak.plugin.KeycloakIdentityProviderPlugin">
+  <bean id="keycloakIdentityProviderPlugin" class="org.finos.fluxnova.bpm.extension.keycloak.plugin.KeycloakIdentityProviderPlugin">
   
     <property name="keycloakIssuerUrl" value="http://localhost:9000/realms/test" />
     <property name="keycloakAdminUrl" value="http://localhost:9000/admin/realms/test" />

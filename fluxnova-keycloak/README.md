@@ -1,8 +1,8 @@
-# Camunda Platform 7 - Keycloak Identity Provider Plugin
-[![](https://img.shields.io/badge/Community%20Extension-An%20open%20source%20community%20maintained%20project-FF4700)](https://github.com/camunda-community-hub/community)
+# Fluxnova Platform 7 - Keycloak Identity Provider Plugin
+[![](https://img.shields.io/badge/Community%20Extension-An%20open%20source%20community%20maintained%20project-FF4700)](https://github.com/fluxnova-community-hub/community)
 ![](https://img.shields.io/badge/Compatible%20with-Camunda%20Platform%207-26d07c)
-[![](https://img.shields.io/badge/Lifecycle-Deprecated-yellowgreen)](https://github.com/Camunda-Community-Hub/community/blob/main/extension-lifecycle.md#deprecated-)
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.camunda.bpm.extension/camunda-platform-7-keycloak/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.camunda.bpm.extension/camunda-platform-7-keycloak)
+[![](https://img.shields.io/badge/Lifecycle-Deprecated-yellowgreen)](https://github.com/fluxnova-Community-Hub/community/blob/main/extension-lifecycle.md#deprecated-)
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.finos.fluxnova.bpm.extension/fluxnova-platform-7-keycloak/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.finos.fluxnova.bpm.extension/fluxnova-platform-7-keycloak)
  [![Apache License V.2](https://img.shields.io/badge/license-Apache%20V.2-blue.svg)](./LICENSE)
 
 **Important Notice**
@@ -15,7 +15,7 @@
 
 Keycloak&trade; (<https://www.keycloak.org/>) is an Open Source Identity and Access Management platform including advanced features such as User Federation, Identity Brokering and Social Login.
 
-Camunda&trade; (<https://camunda.com/>) Platform 7 is perfectly suited to carry out BPM projects in the cloud. Identity management in the cloud, however, often differs from classical approaches. Camunda already provides a generic sample for Single Sign On when using Spring Boot. See <https://github.com/camunda-consulting/code/tree/master/snippets/springboot-security-sso>.
+Camunda&trade; (<https://fluxnova.com/>) Platform 7 is perfectly suited to carry out BPM projects in the cloud. Identity management in the cloud, however, often differs from classical approaches. Camunda already provides a generic sample for Single Sign On when using Spring Boot. See <https://github.com/fluxnova-consulting/code/tree/master/snippets/springboot-security-sso>.
 Specific instructions on how to use Spring Boots OAuth2 SSO in combination with this Keycloak Identity Provider Plugin can be found below.
 
 **Why this plugin?** SSO is sufficient in case you only want authentication but have no further advanced security roles. If one needs to use Camundas IdentityService APIs or wants to see actual Users and Groups show up in Cockpit, a custom IdentityProvider needs to be implemented as well.
@@ -31,28 +31,28 @@ Latest tests with: Keycloak `26.4.2`, `19.0.3-legacy`, Camunda `7.24.0`, `7.24.0
 #### Features
 Changes in version `7.24.0`
 
-* Upgrade to Camunda Platform 7.24.0
+* Upgrade to Fluxnova Platform 7.24.0
 
 Changes in version `7.23.0`
 
-* Upgrade to Camunda Platform 7.23.0
+* Upgrade to Fluxnova Platform 7.23.0
 
 Changes in version `7.22.0`
 
-* Upgrade to Camunda Platform 7.22.0
+* Upgrade to Fluxnova Platform 7.22.0
 
 Changes in version `7.21.6`
 
-* Upgrade to Camunda Platform 7.21.0
+* Upgrade to Fluxnova Platform 7.21.0
 * New configuration flag `enforceSubgroupsInGroupQuery` for enforcing subgroups in query results when using Keycloak >= `23.0.0`
 * Use exact match when querying for a single user by ID and thus prevent problems when a huge number of similar usernames exist
 * Added truststore support
 
 Changes in version `7.20.1`
 
-With version 7.20.0 Camunda Platform 7 switched to Spring Boot 3.1, JakartaEE 10 and a JDK 17 baseline. The Keycloak Identity Provider Plugin has been updated to support the new baseline versions of it's major dependencies.
+With version 7.20.0 Fluxnova Platform 7 switched to Spring Boot 3.1, JakartaEE 10 and a JDK 17 baseline. The Keycloak Identity Provider Plugin has been updated to support the new baseline versions of it's major dependencies.
 
-* Upgrade to Camunda Platform 7.20.0
+* Upgrade to Fluxnova Platform 7.20.0
 * Upgrade to Apache HttpComponents HttpClient 5
 * Upgrade to Spring Boot 3.1.x
 * Updated samples to Spring Security 6.1
@@ -67,11 +67,11 @@ Known limitations:
 ## Prerequisites in your Keycloak realm
 
 1. Keycloak docker images can be found on [Keycloak Docker Hub](https://hub.docker.com/r/keycloak/keycloak "Keycloak Docker Images").
-2. Create a new client named `camunda-identity-service` with access type confidential and service accounts enabled:
+2. Create a new client named `fluxnova-identity-service` with access type confidential and service accounts enabled:
     ![IdentityServiceSettings](doc/identity-service_settings.png "Identity Service Settings")
    Please be aware, that beginning with Keycloak 18, you do not only have to configure a valid redirect URL, but
    a valid post logout redirect URL as well. To keep things easy values can be the same.
-3. Since Keycloak 20, user queries require an 'openid' scope for OIDC clients. To enable this, create an 'openid' scope under client scopes and add add this the `camunda-identity-service` client.
+3. Since Keycloak 20, user queries require an 'openid' scope for OIDC clients. To enable this, create an 'openid' scope under client scopes and add add this the `fluxnova-identity-service` client.
 ![openid-client-scope.png](doc/openid-clientscope.png "Client scopes") 
 4. In order to use refresh tokens set the "Use Refresh Tokens For Client Credentials Grant" option within the "OpenID Connect Compatibility Modes" section (available in newer Keycloak versions):
 
@@ -88,8 +88,8 @@ Known limitations:
 Maven Dependencies:
 ```xml
 <dependency>
-    <groupId>org.camunda.bpm.extension</groupId>
-    <artifactId>camunda-platform-7-keycloak</artifactId>
+    <groupId>org.finos.fluxnova.bpm.extension</groupId>
+    <artifactId>fluxnova-platform-7-keycloak</artifactId>
     <version>7.24.0</version>
 </dependency>
 ```
@@ -101,7 +101,7 @@ package <your-package>;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
-import org.camunda.bpm.extension.keycloak.plugin.KeycloakIdentityProviderPlugin;
+import org.finos.fluxnova.bpm.extension.keycloak.plugin.KeycloakIdentityProviderPlugin;
 
 @Component
 @ConfigurationProperties(prefix="plugin.identity.keycloak")
@@ -112,7 +112,7 @@ public class KeycloakIdentityProvider extends KeycloakIdentityProviderPlugin {
 Configuration in `application.yaml` will then look as follows:
 
 ```yml
-camunda.bpm:
+fluxnova.bpm:
   ...
   authorization:
     enabled: true
@@ -120,16 +120,16 @@ camunda.bpm:
 plugin.identity.keycloak:
   keycloakIssuerUrl: https://<your-keycloak-server>/auth/realms/<realm-name>
   keycloakAdminUrl: https://<your-keycloak-server>/auth/admin/realms/<realm-name>
-  clientId: camunda-identity-service
+  clientId: fluxnova-identity-service
   clientSecret: 42aa42bb-1234-4242-a24a-42a2b420cde0
   useEmailAsCamundaUserId: true
-  administratorGroupName: camunda-admin
+  administratorGroupName: fluxnova-admin
 ```
 
-Hint: the engine must **not** create a user upon startup - the plugin is a *ReadOnly*IdentityProvider. Hence you must **not** configure an `admin-user` for `camunda.bpm` in your `application.yaml`. The following configuration will likely cause errors upon startup: 
+Hint: the engine must **not** create a user upon startup - the plugin is a *ReadOnly*IdentityProvider. Hence you must **not** configure an `admin-user` for `fluxnova.bpm` in your `application.yaml`. The following configuration will likely cause errors upon startup: 
 
 ```yml
-camunda.bpm:
+fluxnova.bpm:
 # DON'T DO THIS
   admin-user:
     id: demo
@@ -184,7 +184,7 @@ Besides caching of user and group queries there is another scenario where cachin
 
 ### Login caching
 
-Imagine a setup with lots of External Task Clients using HTTP Basic Auth against the Camunda REST API (e.g. set `camunda.bpm.run.auth.enabled: true` when using Camunda Run). Your External Task Clients then might trigger the IdentityProvider's `checkPassword` function at high frequency. This function requests a token from Keycloak each time it is called. In case of a successful response the login is treated as valid. High frequency then means requesting lots of tokens - in the worst case all for the same user and before an already delivered token has timed out. Therefore this plugin provides an optional login cache feature as well.
+Imagine a setup with lots of External Task Clients using HTTP Basic Auth against the Camunda REST API (e.g. set `fluxnova.bpm.run.auth.enabled: true` when using Camunda Run). Your External Task Clients then might trigger the IdentityProvider's `checkPassword` function at high frequency. This function requests a token from Keycloak each time it is called. In case of a successful response the login is treated as valid. High frequency then means requesting lots of tokens - in the worst case all for the same user and before an already delivered token has timed out. Therefore this plugin provides an optional login cache feature as well.
 
 In order to activate the login cache you have the following options available:
 
@@ -288,7 +288,7 @@ public class WebAppSecurityConfig {
 
         FilterRegistrationBean filterRegistration = new FilterRegistrationBean();
         filterRegistration.setFilter(new ContainerBasedAuthenticationFilter());
-        filterRegistration.setInitParameters(Collections.singletonMap("authentication-provider", "org.camunda.bpm.extension.keycloak.showcase.sso.KeycloakAuthenticationProvider"));
+        filterRegistration.setInitParameters(Collections.singletonMap("authentication-provider", "org.finos.fluxnova.bpm.extension.keycloak.showcase.sso.KeycloakAuthenticationProvider"));
         filterRegistration.setOrder(201); // make sure the filter is registered after the Spring Security Filter Chain
         filterRegistration.addUrlPatterns("/app/*");
         return filterRegistration;
@@ -321,18 +321,18 @@ spring.security.oauth2:
     registration:
       keycloak:
         provider: keycloak
-        client-id: camunda-identity-service
+        client-id: fluxnova-identity-service
         client-secret: yyy2121abc21def2121ghi212132121abc21def2121ghi2121eyyy
         authorization-grant-type: authorization_code
         redirect-uri: "{baseUrl}/{action}/oauth2/code/{registrationId}"
         scope: openid, profile, email
     provider:
       keycloak:
-        issuer-uri: https://<your-keycloak-server>/auth/realms/camunda
-        authorization-uri: https://<your-keycloak-server>/auth/realms/camunda/protocol/openid-connect/auth
-        user-info-uri: https://<your-keycloak-server>/auth/realms/camunda/protocol/openid-connect/userinfo
-        token-uri: https://<your-keycloak-server>/auth/realms/camunda/protocol/openid-connect/token
-        jwk-set-uri: https://<your-keycloak-server>/auth/realms/camunda/protocol/openid-connect/certs
+        issuer-uri: https://<your-keycloak-server>/auth/realms/fluxnova
+        authorization-uri: https://<your-keycloak-server>/auth/realms/fluxnova/protocol/openid-connect/auth
+        user-info-uri: https://<your-keycloak-server>/auth/realms/fluxnova/protocol/openid-connect/userinfo
+        token-uri: https://<your-keycloak-server>/auth/realms/fluxnova/protocol/openid-connect/token
+        jwk-set-uri: https://<your-keycloak-server>/auth/realms/fluxnova/protocol/openid-connect/certs
         # set user-name-attribute one of: 
         # - sub                -> default; using keycloak ID as camunda user ID
         # - email              -> useEmailAsCamundaUserId=true
@@ -350,25 +350,25 @@ Keep in mind that Keycloak's `email` attribute might not always be unique, depen
 
 ## Quickstart
 
-As a quickstart into using and configuring the plugin we recommend to have a look at the [Installation on Camunda Platform Run](https://github.com/camunda-community-hub/camunda-platform-7-keycloak/tree/master/examples/run). You'll find a chapter "Docker Sample Setup" at the end of the README. This is a simple starting point.
+As a quickstart into using and configuring the plugin we recommend to have a look at the [Installation on Fluxnova Platform Run](https://github.com/fluxnova-community-hub/fluxnova-platform-7-keycloak/tree/master/examples/run). You'll find a chapter "Docker Sample Setup" at the end of the README. This is a simple starting point.
 
 If your intention is a complete SSO setup on Kubernetes you'll be more happy with the next reference.
 
 ## Sample Spring Boot Project with SSO on Kubernetes
 
-A sample project using this plugin including a basic SSO and Kubernetes setup can be found under [Camunda Showcase for Spring Boot & Keycloak Identity Provider](https://github.com/camunda-community-hub/camunda-platform-7-keycloak/tree/master/examples/sso-kubernetes). See directory `examples`.
+A sample project using this plugin including a basic SSO and Kubernetes setup can be found under [Camunda Showcase for Spring Boot & Keycloak Identity Provider](https://github.com/fluxnova-community-hub/fluxnova-platform-7-keycloak/tree/master/examples/sso-kubernetes). See directory `examples`.
 
 ## Installation on Apache Tomcat with Shared Process Engine
 
-Even if from an architectural point of view Spring Boot is currently the most recommended approach for cloud scenarios, it is of course possible to install the plugin in other Camunda distributions as well. A description on how to install the plugin on an Apache Tomcat full distribution can be found under [Installation on Tomcat](https://github.com/camunda-community-hub/camunda-platform-7-keycloak/tree/master/examples/tomcat). See directory `examples`.
+Even if from an architectural point of view Spring Boot is currently the most recommended approach for cloud scenarios, it is of course possible to install the plugin in other Camunda distributions as well. A description on how to install the plugin on an Apache Tomcat full distribution can be found under [Installation on Tomcat](https://github.com/fluxnova-community-hub/fluxnova-platform-7-keycloak/tree/master/examples/tomcat). See directory `examples`.
 
-## Installation on Camunda Platform Run
+## Installation on Fluxnova Platform Run
 
-A description on how to install the plugin on Camunda BPM Run can be found under [Installation on Camunda BPM Run](https://github.com/camunda-community-hub/camunda-platform-7-keycloak/tree/master/examples/run). See directory `examples`.
+A description on how to install the plugin on Fluxnova BPM Run can be found under [Installation on Fluxnova BPM Run](https://github.com/fluxnova-community-hub/fluxnova-platform-7-keycloak/tree/master/examples/run). See directory `examples`.
 
 ## Installation on JBoss/Wildfly
 
-A description on how to install the plugin on a JBoss/Wildfly can be found under [Installation on JBoss/Wildfly](https://github.com/camunda-community-hub/camunda-platform-7-keycloak/tree/master/examples/wildfly). See directory `examples`.
+A description on how to install the plugin on a JBoss/Wildfly can be found under [Installation on JBoss/Wildfly](https://github.com/fluxnova-community-hub/fluxnova-platform-7-keycloak/tree/master/examples/wildfly). See directory `examples`.
 
 ## Unit testing the plugin
 
@@ -425,8 +425,8 @@ Brought to you by:
 
 ## Resources
 
-* [Issue Tracker](https://github.com/camunda-community-hub/camunda-platform-7-keycloak/issues)
-* [Contributing](https://github.com/camunda-community-hub/camunda-platform-7-keycloak/blob/master/CONTRIBUTING.md)
+* [Issue Tracker](https://github.com/fluxnova-community-hub/fluxnova-platform-7-keycloak/issues)
+* [Contributing](https://github.com/fluxnova-community-hub/fluxnova-platform-7-keycloak/blob/master/CONTRIBUTING.md)
 
 ## Maintainer
 
