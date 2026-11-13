@@ -1,7 +1,7 @@
 # mcp-workflow-query
 
 A read-only [MCP](https://modelcontextprotocol.io/) server extension for
-the [Fluxnova](https://github.com/finos/fluxnova) process engine. It exposes process engine query functionality as MCP
+the [Fluxnova](https://github.com/finos/fluxnova-bpm-platform) process engine. It exposes process engine query functionality as MCP
 tools, allowing LLM-based agents to inspect and monitor running workflows without being able to modify them.
 
 ## Overview
@@ -20,9 +20,9 @@ runtime data.
     - **Result limit** — `fluxnova.mcp.query.max-results` caps the number of results any single tool call can return (
       default 200).
 
-2. **Tool call** — the client sends a JSON-RPC `tools/call` request with the tool name and a JSON object containing
-   filter criteria. The MCP server deserializes the criteria into a **Query DTO** (`TaskQueryDto`,
-   `ProcessInstanceQueryDto`, etc.).
+2. **Tool call** — the client sends a JSON-RPC `tools/call` request with the tool name and its arguments: an optional
+   `queryDto` object containing filter criteria and an optional `maxResults` integer. The `queryDto` is deserialized
+   into a **Query DTO** record (`TaskQueryDto`, `ProcessInstanceQueryDto`, etc.).
 
 3. **Query execution** — the tool class calls `queryDto.toQuery(service)` which builds a native engine query, applying
    only the non-null filters from the DTO. The query is executed against the process engine database.
@@ -131,50 +131,68 @@ than a list of result DTOs.
 | `queryHistoricBatches`               | Find historical batch operation records by id, type, completion state, and tenant.                                   |
 | `queryHistoricExternalTaskLog`       | Find external task lifecycle log entries tracking creation, success, failure, and deletion events.                   |
 
-Each tool accepts a query DTO with optional filter criteria and an optional `maxResults` parameter to control the number
-of results returned. Results are serialized to JSON.
+Each query tool takes two optional arguments: `queryDto`, an object with the filter criteria, and `maxResults`, an
+integer limiting the number of results returned. Results are serialized to JSON.
 
 ## Requirements
 
 - Java 21+
-- Fluxnova BPM Engine 1.0.0+
-- Spring Boot 3.5+
-- Spring AI 1.1+
+- Fluxnova BPM Engine 3.0.0+
+- Spring Boot 4.0.x
+- Spring AI 2.0.x
+- [`mcp-server-plugin`](../mcp-server-plugin/README.md) (pulled in transitively)
 
 ## Installation
 
 Add the dependency to your Fluxnova Spring Boot application:
 
 ```xml
-
 <dependency>
-    <groupId>org.finos.fluxnova.ai.mcp</groupId>
-    <artifactId>mcp-workflow-query</artifactId>
-    <version>2.0.0-SNAPSHOT</version>
+    <groupId>org.finos.fluxnova.bpm</groupId>
+    <artifactId>fluxnova-engine-plugins-ai-mcp-query-workflow</artifactId>
+    <version>${fluxnova-plugins-ai.version}</version>
 </dependency>
 ```
 
-The extension uses Spring Boot auto-configuration. Once the JAR is on the classpath, the `QueryMcpAutoConfiguration`
-class is detected automatically via `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`.
+This brings in `fluxnova-engine-plugins-ai-mcp-server`, which runs the Spring AI MCP server and provides the
+`ToolRegistry` that the query tools are registered with. Configure the MCP server as usual for Spring AI, e.g.:
 
-No additional configuration is required — the extension picks up the engine service beans already present in your
-Fluxnova application context.
+```yaml
+spring:
+  ai:
+    mcp:
+      server:
+        name: fluxnova-mcp-server
+        protocol: STREAMABLE
+        type: SYNC
+```
+
+The extension uses Spring Boot auto-configuration. Once the JAR is on the classpath, `QueryMcpAutoConfiguration` is
+detected via `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`. No additional
+configuration is required — the extension picks up the engine service beans already present in your Fluxnova
+application context.
+
+A runnable example application with end-to-end tests lives in
+[fluxnova-examples](https://github.com/finos/fluxnova-examples) under `ai/mcp-workflow-query-example`.
 
 ## How It Works
 
-1. **Auto-configuration** registers each tool class as a Spring bean, guarded by a `@ConditionalOnProperty` toggle.
-2. **Tool classes** (`RuntimeQueryMcpTools`, `RepositoryQueryMcpTools`, `TaskQueryMcpTools`,`ExternalTaskQueryMcpTools`,
-   `AuthorizationQueryMcpTools`, `FilterQueryMcpTools`, `CaseQueryMcpTools`,`IdentityQueryMcpTools`,
-   `ManagementQueryMcpTools`, `HistoryQueryMcpTools`, `XMLMcpTools`) inject their respective engine service and expose
-   `@McpTool`-annotated methods.
-3. Each tool method:
-    - Accepts a query DTO (e.g. `ProcessInstanceQueryDto`) describing the filter criteria, and an optional `maxResults`
-      parameter.
+1. **Auto-configuration** (`QueryMcpAutoConfiguration`, ordered after the mcp-server-plugin's auto-configuration)
+   creates one bean per tool class (`RuntimeQueryMcpTools`, `RepositoryQueryMcpTools`, `TaskQueryMcpTools`,
+   `ExternalTaskQueryMcpTools`, `AuthorizationQueryMcpTools`, `FilterQueryMcpTools`, `CaseQueryMcpTools`,
+   `IdentityQueryMcpTools`, `ManagementQueryMcpTools`, `HistoryQueryMcpTools`, `XMLMcpTools`), each guarded by its
+   service-level `@ConditionalOnProperty` toggle and injected with its engine service.
+2. **Registration** — on application start-up, `QueryToolRegistrar` registers each tool method programmatically with
+   the mcp-server-plugin's `ToolRegistry`, skipping any tool named in `fluxnova.mcp.query.tools.exclude`. Each tool's
+   input schema is generated from its Query DTO record by `QueryToolSchemaGenerator`, using the `@Schema` descriptions
+   on the record components.
+3. **Each tool call**:
+    - Deserializes the `queryDto` argument into the Query DTO record (e.g. `ProcessInstanceQueryDto`).
     - Builds a native engine query (`RuntimeService.createProcessInstanceQuery()`, etc.) by applying only the non-null
       filters from the DTO.
-    - Applies a result limit: `maxResults` if provided (capped at the configured maximum), otherwise the configured
-      default.
-    - Maps the engine entity results into lightweight result DTOs and serializes them to JSON.
+    - Applies a result limit: `maxResults` if provided and positive (capped at the configured maximum), otherwise the
+      configured maximum.
+    - Maps the engine entity results into lightweight result DTOs, which the MCP server serializes to JSON.
 
 ## Configuration
 
@@ -184,7 +202,7 @@ The extension supports the following application properties:
 
 | Property                         | Default | Description                                                                                                                                                                  |
 |----------------------------------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `fluxnova.mcp.query.max-results` | `200`   | Maximum number of results any tool call can return. Individual tool calls may request fewer via the `maxResults` tool parameter, but this value acts as an absolute ceiling. |
+| `fluxnova.mcp.query.max-results` | `200`   | Maximum number of results any tool call can return. Individual tool calls may request fewer via the `maxResults` tool argument, but this value acts as an absolute ceiling. |
 
 ### Service-Level Toggles
 
@@ -241,31 +259,36 @@ fluxnova.mcp.query.tools.management.enabled=false
 
 ## Usage Examples
 
+The examples below show the `arguments` of an MCP `tools/call` request.
+
 ### Query all active process instances
 
 ```json
 {
-  "active": true
+  "queryDto": {
+    "active": true
+  }
 }
 ```
 
-### Query process instances by definition key
-
-Query DTO:
+### Query process instances by definition key, limited to 10 results
 
 ```json
 {
-  "processDefinitionKey": "invoice-approval"
+  "queryDto": {
+    "processDefinitionKey": "invoice-approval"
+  },
+  "maxResults": 10
 }
 ```
-
-Pass `maxResults` as a separate tool parameter (e.g. `10`) to limit how many results are returned.
 
 ### Find incidents for a specific process instance
 
 ```json
 {
-  "processInstanceId": "abc-123"
+  "queryDto": {
+    "processInstanceId": "abc-123"
+  }
 }
 ```
 
@@ -273,8 +296,10 @@ Pass `maxResults` as a separate tool parameter (e.g. `10`) to limit how many res
 
 ```json
 {
-  "messageEventSubscriptionName": "paymentReceived",
-  "active": true
+  "queryDto": {
+    "messageEventSubscriptionName": "paymentReceived",
+    "active": true
+  }
 }
 ```
 
@@ -282,10 +307,10 @@ Pass `maxResults` as a separate tool parameter (e.g. `10`) to limit how many res
 
 ```json
 {
-  "processInstanceIdIn": [
-    "abc-123"
-  ],
-  "variableName": "orderTotal"
+  "queryDto": {
+    "processInstanceIdIn": ["abc-123"],
+    "variableName": "orderTotal"
+  }
 }
 ```
 
@@ -293,18 +318,17 @@ Pass `maxResults` as a separate tool parameter (e.g. `10`) to limit how many res
 
 ```json
 {
-  "eventType": "signal",
-  "tenantIdIn": [
-    "tenant-a",
-    "tenant-b"
-  ]
+  "queryDto": {
+    "eventType": "signal",
+    "tenantIdIn": ["tenant-a", "tenant-b"]
+  }
 }
 ```
 
 ### Retrieve the BPMN XML for a process definition
 
-First use `queryProcessDefinitions` to find the process definition ID, then call `getProcessModelXml` with that ID. The
-tool returns the full BPMN 2.0 XML string, e.g.:
+First use `queryProcessDefinitions` to find the process definition ID, then call `getProcessModelXml` with
+`{"processDefinitionId": "<id>"}`. The tool returns the full BPMN 2.0 XML string, e.g.:
 
 ```
 <?xml version="1.0" encoding="UTF-8"?>
@@ -323,48 +347,28 @@ The same pattern applies to DMN files via `getDecisionModelXml` / `getDecisionRe
 ```
 src/main/java/org/finos/fluxnova/ai/mcp/query/
 ├── autoconfigure/
-│   ├── QueryMcpAutoConfiguration.java        # Spring Boot auto-configuration with @ConditionalOnProperty beans
-│   ├── QueryToolsProperties.java             # @ConfigurationProperties for tool toggles and exclusions
-│   └── ToolSpecificationFilter.java          # BeanPostProcessor for per-tool exclusion filtering
+│   ├── QueryMcpAutoConfiguration.java        # Spring Boot auto-configuration: tool beans + registration runner
+│   └── QueryToolsProperties.java             # @ConfigurationProperties for tool toggles and exclusions
 ├── model/
-│   ├── dto/                                  # Result DTOs (tool output)
-│   │   ├── ProcessInstanceResultDto.java
-│   │   ├── ExecutionResultDto.java
-│   │   ├── IncidentResultDto.java
-│   │   ├── EventSubscriptionResultDto.java
-│   │   ├── VariableInstanceResultDto.java
-│   │   ├── ProcessDefinitionResultDto.java
-│   │   ├── DeploymentResultDto.java
-│   │   ├── TaskResultDto.java
-│   │   ├── CaseDefinitionResultDto.java
-│   │   ├── DecisionDefinitionResultDto.java
-│   │   ├── DecisionRequirementsDefinitionResultDto.java
-│   │   ├── ExternalTaskResultDto.java
-│   │   ├── AuthorizationResultDto.java
-│   │   └── FilterResultDto.java
-│   └── query/                                # Query DTOs (tool input)
-│       ├── ProcessInstanceQueryDto.java
-│       ├── ExecutionQueryDto.java
-│       ├── IncidentQueryDto.java
-│       ├── EventSubscriptionQueryDto.java
-│       ├── VariableInstanceQueryDto.java
-│       ├── ProcessDefinitionQueryDto.java
-│       ├── DeploymentQueryDto.java
-│       ├── TaskQueryDto.java
-│       ├── CaseDefinitionQueryDto.java
-│       ├── DecisionDefinitionQueryDto.java
-│       ├── DecisionRequirementsDefinitionQueryDto.java
-│       ├── ExternalTaskQueryDto.java
-│       ├── AuthorizationQueryDto.java
-│       └── FilterQueryDto.java
-└── tools/
-    ├── RuntimeQueryMcpTools.java             # MCP tools for RuntimeService queries
-    ├── RepositoryQueryMcpTools.java          # MCP tools for RepositoryService queries
-    ├── TaskQueryMcpTools.java                # MCP tools for TaskService queries
-    ├── ExternalTaskQueryMcpTools.java        # MCP tools for ExternalTaskService queries
-    ├── AuthorizationQueryMcpTools.java       # MCP tools for AuthorizationService queries
-    ├── FilterQueryMcpTools.java              # MCP tools for FilterService queries
-    └── XMLMcpTools.java                      # MCP tools for raw XML model retrieval (BPMN, DMN, CMMN)
+│   ├── dto/                                  # Result DTO records (tool output), one per engine entity
+│   └── query/                                # Query DTO records (tool input); each builds its native engine query
+├── plugins/
+│   └── McpWorkflowQueryPlugin.java           # ProcessEnginePlugin (lifecycle logging)
+├── registry/
+│   ├── QueryToolRegistrar.java               # Registers tool methods with the mcp-server-plugin ToolRegistry
+│   └── QueryToolSchemaGenerator.java         # Generates MCP input schemas from Query DTO records
+└── tools/                                    # One class per engine service, wrapping its query API
+    ├── AuthorizationQueryMcpTools.java
+    ├── CaseQueryMcpTools.java
+    ├── ExternalTaskQueryMcpTools.java
+    ├── FilterQueryMcpTools.java
+    ├── HistoryQueryMcpTools.java
+    ├── IdentityQueryMcpTools.java
+    ├── ManagementQueryMcpTools.java
+    ├── RepositoryQueryMcpTools.java
+    ├── RuntimeQueryMcpTools.java
+    ├── TaskQueryMcpTools.java
+    └── XMLMcpTools.java                      # Raw XML model retrieval (BPMN, DMN, CMMN)
 ```
 
 ## Building

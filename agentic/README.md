@@ -8,6 +8,7 @@ Parent project for the Fluxnova AI plugin suite.
 |------------|--------------------------------------------------------------|---------|
 | MCP        |[`mcp-server-plugin`](mcp-server-plugin/README.md)            | Registers the Fluxnova engine as an MCP server and provides a `ToolRegistry` for other plugins |
 | MCP        |[`mcp-process-start-event`](mcp-process-start-event/README.md) | Scans BPMN processes for MCP-annotated start events and exposes them as MCP tools |
+| MCP        |[`mcp-query-workflow`](mcp-query-workflow/README.md)           | Exposes the process engine query API (runtime, history, tasks, ...) as read-only MCP tools |
 
 ## MCP Capability
 Exposes a Fluxnova process engine as an [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server so that AI assistants and LLM clients can discover and invoke business processes as tools.
