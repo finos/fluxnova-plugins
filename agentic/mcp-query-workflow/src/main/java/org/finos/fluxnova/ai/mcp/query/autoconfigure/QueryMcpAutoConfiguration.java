@@ -18,7 +18,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
 
 /**
  * Auto-configuration for the mcp-workflow-query extension.
@@ -35,7 +34,6 @@ import org.springframework.context.annotation.ComponentScan;
  */
 @AutoConfiguration(after = McpServerSpringAutoConfiguration.class)
 @EnableConfigurationProperties(QueryToolsProperties.class)
-@ComponentScan(basePackages = "org.finos.fluxnova.ai.mcp.query.model")
 public class QueryMcpAutoConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(QueryMcpAutoConfiguration.class);
