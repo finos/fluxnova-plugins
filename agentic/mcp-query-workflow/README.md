@@ -172,9 +172,6 @@ detected via `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfigu
 configuration is required — the extension picks up the engine service beans already present in your Fluxnova
 application context.
 
-A runnable example application with end-to-end tests lives in
-[fluxnova-examples](https://github.com/finos/fluxnova-examples) under `ai/mcp-workflow-query-example`.
-
 ## How It Works
 
 1. **Auto-configuration** (`QueryMcpAutoConfiguration`, ordered after the mcp-server-plugin's auto-configuration)
