@@ -2,3 +2,9 @@ Fluxnova Plugins - FINOS
 Copyright 2026 - FINOS info@finos.org
 
 This product includes software developed at the Fintech Open Source Foundation (https://www.finos.org/).
+
+This repository includes files that were copied or adapted from third-party works distributed under permissive open source
+licenses:
+
+  - fluxnova-keycloak is a port of the Camunda Platform 7 Keycloak Identity Provider Plugin
+    (https://github.com/camunda-community-hub/camunda-platform-7-keycloak), licensed under the Apache License, Version 2.0.

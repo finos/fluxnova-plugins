@@ -1,0 +1,38 @@
+name: "Keycloak Plugin Build"
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "fluxnova-keycloak/**"
+      - ".github/**"
+      - "pom.xml"
+  pull_request:
+    paths:
+      - "fluxnova-keycloak/**"
+      - ".github/**"
+      - "pom.xml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.ref == 'refs/heads/main' && format('ci-default-branch-{0}-{1}', github.sha, github.workflow) ||
+    format('ci-pr-{0}-{1}', github.ref, github.workflow) }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    permissions:
+      contents: read
+      packages: write
+      actions: read
+      pull-requests: write
+      attestations: write
+      id-token: write
+    uses: ./.github/workflows/common-build.yaml
+    with:
+      project-id: "fluxnova-keycloak"
+    secrets: inherit

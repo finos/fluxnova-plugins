@@ -8,3 +8,6 @@ projects:
   agentic-subprocess:
     path: agentic-subprocess
     tagKey: agentic-subprocess
+  fluxnova-keycloak:
+    path: fluxnova-keycloak
+    tagKey: keycloak
